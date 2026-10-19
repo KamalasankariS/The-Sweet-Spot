@@ -7,10 +7,22 @@ import { Navbar } from "@/components/layout/Navbar";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GradientButton } from "@/components/ui/GradientButton";
 import { ChemistryRing } from "@/components/ui/ChemistryRing";
+import { Toast } from "@/components/ui/Toast";
+import { shareGroupInvite } from "@/lib/share";
 
 interface MemberProfile {
   name: string;
   selections: Record<number, string[]>;
+  entityIds?: Record<number, Record<string, string>>;
+  extras?: {
+    avatarEmoji?: string;
+    avatarImage?: string;
+    moodEmoji?: string;
+    bio?: string;
+    currentSong?: string;
+    comfortMovie?: string;
+    comfortFood?: string;
+  };
   createdAt: string;
 }
 
@@ -28,6 +40,52 @@ const OCCASIONS_CORPORATE = [
   { id: "offsite", label: "Offsite", icon: "✈️" },
 ];
 
+const DEMO_SELECTIONS: Record<string, Record<number, string[]>> = {
+  Alex: {
+    0: ["Radiohead", "Tame Impala"],
+    1: ["Inception", "Parasite"],
+    2: ["Japanese", "Ramen"],
+    3: ["Jazz clubs", "Speakeasy"],
+    4: ["Muji", "Minimalist"],
+  },
+  Jordan: {
+    0: ["SZA", "Frank Ocean"],
+    1: ["Everything Everywhere", "Spirited Away"],
+    2: ["Thai", "Korean BBQ"],
+    3: ["Live music", "Karaoke"],
+    4: ["Vintage", "Streetwear"],
+  },
+  Sam: {
+    0: ["Beyonce", "Bad Bunny", "Daft Punk"],
+    1: ["The Bear", "Ted Lasso"],
+    2: ["Mexican", "Street food"],
+    3: ["Dance clubs", "Rooftop bars"],
+    4: ["Nike", "Y2K"],
+  },
+  Riley: {
+    0: ["Taylor Swift", "Arctic Monkeys"],
+    1: ["Stranger Things", "The Office"],
+    2: ["Italian", "Mediterranean"],
+    3: ["Wine bars", "Comedy shows"],
+    4: ["Cottagecore", "Scandinavian"],
+  },
+};
+
+function computeChemistryScore(members: MemberProfile[]): number {
+  if (members.length < 2) return 0;
+  let charSum = 0;
+  for (const member of members) {
+    for (const picks of Object.values(member.selections)) {
+      for (const pick of picks) {
+        for (let i = 0; i < pick.length; i++) {
+          charSum += pick.charCodeAt(i);
+        }
+      }
+    }
+  }
+  return 72 + (charSum % 25);
+}
+
 export default function GroupPage() {
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [groupName, setGroupName] = useState("");
@@ -35,20 +93,43 @@ export default function GroupPage() {
   const [occasion, setOccasion] = useState("");
   const [location, setLocation] = useState("");
   const [groupCreated, setGroupCreated] = useState(false);
+  const [groupId, setGroupId] = useState("");
   const [members, setMembers] = useState<MemberProfile[]>([]);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [toast, setToast] = useState("");
 
   useEffect(() => {
+    // Check if there's already a group
+    const savedGroup = localStorage.getItem("sweetspot_group");
+    if (savedGroup) {
+      try {
+        const parsed = JSON.parse(savedGroup);
+        setGroupName(parsed.name);
+        setMode(parsed.mode);
+        setOccasion(parsed.occasion);
+        setLocation(parsed.location);
+        setMembers(parsed.members);
+        setGroupId(parsed.id);
+        setGroupCreated(true);
+      } catch {
+        // ignore
+      }
+    }
+
     const saved = localStorage.getItem("sweetspot_profile");
     if (saved) {
       const parsed = JSON.parse(saved) as MemberProfile;
       setProfile(parsed);
-      setMembers([parsed]);
+      if (!savedGroup) {
+        setMembers([parsed]);
+      }
     }
   }, []);
 
   const handleCreateGroup = () => {
+    const id = crypto.randomUUID();
     const groupData = {
-      id: crypto.randomUUID(),
+      id,
       name: groupName,
       mode,
       occasion,
@@ -57,36 +138,56 @@ export default function GroupPage() {
       createdAt: new Date().toISOString(),
     };
     localStorage.setItem("sweetspot_group", JSON.stringify(groupData));
+    setGroupId(id);
     setGroupCreated(true);
   };
 
   const addDemoMember = (name: string) => {
-    const demoSelections: Record<number, string[]> = {
-      0: ["Radiohead", "Tame Impala", "SZA"].slice(
-        0,
-        Math.floor(Math.random() * 3) + 1
-      ),
-      1: ["Inception", "The Bear", "Parasite"].slice(
-        0,
-        Math.floor(Math.random() * 3) + 1
-      ),
-      2: ["Japanese", "Mexican", "Italian"].slice(
-        0,
-        Math.floor(Math.random() * 3) + 1
-      ),
-      3: ["Cocktail bars", "Live music", "Rooftop bars"].slice(
-        0,
-        Math.floor(Math.random() * 3) + 1
-      ),
-      4: ["Nike", "Muji", "Vintage"].slice(
-        0,
-        Math.floor(Math.random() * 3) + 1
-      ),
+    const selections = DEMO_SELECTIONS[name];
+    if (!selections) return;
+
+    const newMember: MemberProfile = {
+      name,
+      selections,
+      createdAt: new Date().toISOString(),
     };
-    setMembers((prev) => [
-      ...prev,
-      { name, selections: demoSelections, createdAt: new Date().toISOString() },
-    ]);
+    const updated = [...members, newMember];
+    setMembers(updated);
+
+    // Update localStorage
+    const savedGroup = localStorage.getItem("sweetspot_group");
+    if (savedGroup) {
+      const parsed = JSON.parse(savedGroup);
+      parsed.members = updated;
+      localStorage.setItem("sweetspot_group", JSON.stringify(parsed));
+    }
+  };
+
+  const removeMember = (index: number) => {
+    const updated = members.filter((_, i) => i !== index);
+    setMembers(updated);
+
+    const savedGroup = localStorage.getItem("sweetspot_group");
+    if (savedGroup) {
+      const parsed = JSON.parse(savedGroup);
+      parsed.members = updated;
+      localStorage.setItem("sweetspot_group", JSON.stringify(parsed));
+    }
+    setToast("Member removed");
+    setTimeout(() => setToast(""), 2000);
+  };
+
+  const handleShareInvite = async () => {
+    const link = `${window.location.origin}/join/${groupId}`;
+    const result = await shareGroupInvite(groupName, link);
+    if (result === "copied") {
+      setLinkCopied(true);
+      setToast("Invite link copied!");
+      setTimeout(() => { setLinkCopied(false); setToast(""); }, 2500);
+    } else if (result === "shared") {
+      setToast("Invite shared!");
+      setTimeout(() => setToast(""), 2500);
+    }
   };
 
   const occasions = mode === "social" ? OCCASIONS_SOCIAL : OCCASIONS_CORPORATE;
@@ -113,8 +214,7 @@ export default function GroupPage() {
   }
 
   if (groupCreated) {
-    // Group dashboard with chemistry
-    const demoChemistry = members.length > 1 ? 78 + Math.floor(Math.random() * 15) : 0;
+    const chemistry = computeChemistryScore(members);
 
     return (
       <>
@@ -149,7 +249,7 @@ export default function GroupPage() {
                 </span>
                 <div className="mt-4">
                   {members.length > 1 ? (
-                    <ChemistryRing score={demoChemistry} />
+                    <ChemistryRing score={chemistry} />
                   ) : (
                     <div className="py-8">
                       <div className="text-4xl mb-3 opacity-30">🔗</div>
@@ -179,28 +279,71 @@ export default function GroupPage() {
                         key={member.name + i}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20, height: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        className="flex items-center justify-between py-3 px-4 rounded-xl bg-white/[0.03]"
+                        className="flex items-center justify-between py-3 px-4 rounded-xl bg-white/[0.03] group"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-orange to-accent-pink flex items-center justify-center text-xs font-bold">
-                            {member.name[0]}
-                          </div>
-                          <div>
-                            <span className="text-sm font-medium">
-                              {member.name}
-                            </span>
-                            <span className="text-xs text-white/30 ml-2">
-                              {Object.values(member.selections).flat().length}{" "}
-                              picks
-                            </span>
+                          {member.extras?.avatarImage ? (
+                            <div
+                              className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0"
+                              style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+                            >
+                              <img src={member.extras.avatarImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            </div>
+                          ) : (
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0"
+                              style={{
+                                background: member.extras?.avatarEmoji
+                                  ? "linear-gradient(135deg, rgba(249,115,22,0.15), rgba(236,72,153,0.15))"
+                                  : "linear-gradient(135deg, rgba(249,115,22,0.4), rgba(236,72,153,0.4))",
+                                fontSize: member.extras?.avatarEmoji ? "1.1rem" : "0.75rem",
+                                fontWeight: member.extras?.avatarEmoji ? 400 : 700,
+                              }}
+                            >
+                              {member.extras?.avatarEmoji || member.name[0]}
+                            </div>
+                          )}
+                          <div style={{ minWidth: 0 }}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{member.name}</span>
+                              {member.extras?.moodEmoji && (
+                                <span style={{ fontSize: "0.8rem" }}>{member.extras.moodEmoji}</span>
+                              )}
+                              <span className="text-xs text-white/30">
+                                {Object.values(member.selections).flat().length} picks
+                              </span>
+                            </div>
+                            {member.extras?.currentSong && (
+                              <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.25)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "14rem" }}>
+                                🎵 {member.extras.currentSong}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        {i === 0 && (
-                          <span className="text-xs text-accent-orange/60 px-2 py-0.5 rounded-full bg-accent-orange/10">
-                            You
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {i === 0 && (
+                            <span className="text-xs text-accent-orange/60 px-2 py-0.5 rounded-full bg-accent-orange/10">
+                              You
+                            </span>
+                          )}
+                          <button
+                            onClick={() => removeMember(i)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            style={{
+                              width: "1.5rem", height: "1.5rem", borderRadius: "50%",
+                              background: "rgba(255,255,255,0.05)", border: "none",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: "rgba(255,255,255,0.3)", fontSize: "0.7rem",
+                            }}
+                            title={`Remove ${member.name}`}
+                          >
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                              <path d="M2 2l6 6m0-6l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                        </div>
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -236,7 +379,7 @@ export default function GroupPage() {
                 <GradientButton
                   size="lg"
                   onClick={() => {
-                    window.location.href = `/itinerary/demo`;
+                    window.location.href = `/itinerary/${groupId || "demo"}`;
                   }}
                 >
                   Find The Sweet Spot
@@ -266,15 +409,19 @@ export default function GroupPage() {
               <GlassCard hover={false} className="inline-flex items-center gap-3 px-5 py-3">
                 <span className="text-xs text-white/30">Share invite link:</span>
                 <code className="text-xs text-accent-cyan/60 bg-white/[0.03] px-3 py-1 rounded-lg">
-                  sweetspot.app/join/abc123
+                  {groupId ? `${typeof window !== "undefined" ? window.location.origin : ""}/join/${groupId.slice(0, 8)}...` : "generating..."}
                 </code>
-                <button className="text-xs text-white/40 hover:text-white/60 transition-colors">
-                  Copy
+                <button
+                  onClick={handleShareInvite}
+                  className="text-xs text-white/40 hover:text-white/60 transition-colors cursor-pointer"
+                >
+                  {linkCopied ? "Copied!" : "Share"}
                 </button>
               </GlassCard>
             </motion.div>
           </div>
         </div>
+        <Toast message={toast} visible={!!toast} />
       </>
     );
   }

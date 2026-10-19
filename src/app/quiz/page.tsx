@@ -8,6 +8,8 @@ import { QuizStep } from "@/components/taste-quiz/QuizStep";
 import { ProgressBar } from "@/components/taste-quiz/ProgressBar";
 import { GradientButton } from "@/components/ui/GradientButton";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { Toast } from "@/components/ui/Toast";
+import { moderateName } from "@/lib/moderation";
 
 const QUIZ_STEPS = [
   {
@@ -16,6 +18,7 @@ const QUIZ_STEPS = [
     prompt: "What artists or bands do you love?",
     placeholder: "Type an artist name...",
     color: "#f97316",
+    entityType: "urn:entity:artist",
     suggestions: [
       "Radiohead",
       "Beyonce",
@@ -37,6 +40,7 @@ const QUIZ_STEPS = [
     prompt: "What are your favorite movies or shows?",
     placeholder: "Type a movie or show...",
     color: "#ec4899",
+    entityType: "urn:entity:movie,urn:entity:tv_show",
     suggestions: [
       "Inception",
       "Breaking Bad",
@@ -58,6 +62,7 @@ const QUIZ_STEPS = [
     prompt: "What cuisines or food vibes are you into?",
     placeholder: "Type a cuisine or restaurant...",
     color: "#8b5cf6",
+    entityType: "urn:entity:place",
     suggestions: [
       "Japanese",
       "Italian",
@@ -79,6 +84,7 @@ const QUIZ_STEPS = [
     prompt: "What's your ideal night out vibe?",
     placeholder: "Type a vibe or venue type...",
     color: "#06b6d4",
+    entityType: "urn:entity:place",
     suggestions: [
       "Cocktail bars",
       "Live music",
@@ -100,6 +106,7 @@ const QUIZ_STEPS = [
     prompt: "What brands or aesthetics resonate with you?",
     placeholder: "Type a brand or style...",
     color: "#84cc16",
+    entityType: "urn:entity:brand",
     suggestions: [
       "Nike",
       "Aesop",
@@ -127,15 +134,34 @@ export default function QuizPage() {
   const [selections, setSelections] = useState<Record<number, string[]>>(
     Object.fromEntries(QUIZ_STEPS.map((_, i) => [i, []]))
   );
+  const [entityIds, setEntityIds] = useState<Record<number, Record<string, string>>>(
+    Object.fromEntries(QUIZ_STEPS.map((_, i) => [i, {}]))
+  );
+  const [entityImages, setEntityImages] = useState<Record<number, Record<string, string>>>(
+    Object.fromEntries(QUIZ_STEPS.map((_, i) => [i, {}]))
+  );
   const [quizComplete, setQuizComplete] = useState(false);
   const [userName, setUserName] = useState("");
+  const [toast, setToast] = useState("");
 
   const handleAdd = useCallback(
-    (item: string) => {
+    (item: string, entityId?: string, imageUrl?: string) => {
       setSelections((prev) => ({
         ...prev,
         [currentStep]: [...(prev[currentStep] || []), item],
       }));
+      if (entityId) {
+        setEntityIds((prev) => ({
+          ...prev,
+          [currentStep]: { ...(prev[currentStep] || {}), [item]: entityId },
+        }));
+      }
+      if (imageUrl) {
+        setEntityImages((prev) => ({
+          ...prev,
+          [currentStep]: { ...(prev[currentStep] || {}), [item]: imageUrl },
+        }));
+      }
     },
     [currentStep]
   );
@@ -233,10 +259,17 @@ export default function QuizPage() {
               <div className="flex flex-col gap-3">
                 <GradientButton
                   onClick={() => {
-                    // TODO: Save profile & redirect to group creation
+                    const check = moderateName(userName.trim());
+                    if (!check.passed) {
+                      setToast(check.reason!);
+                      setTimeout(() => setToast(""), 3000);
+                      return;
+                    }
                     const profile = {
                       name: userName,
                       selections,
+                      entityIds,
+                      entityImages,
                       createdAt: new Date().toISOString(),
                     };
                     localStorage.setItem(
@@ -249,13 +282,39 @@ export default function QuizPage() {
                 >
                   Create or Join a Group
                 </GradientButton>
-                <GradientButton variant="ghost">
+                <GradientButton
+                  variant="ghost"
+                  onClick={() => {
+                    const nameToCheck = userName.trim() || "You";
+                    if (userName.trim()) {
+                      const check = moderateName(nameToCheck);
+                      if (!check.passed) {
+                        setToast(check.reason!);
+                        setTimeout(() => setToast(""), 3000);
+                        return;
+                      }
+                    }
+                    const profile = {
+                      name: nameToCheck,
+                      selections,
+                      entityIds,
+                      entityImages,
+                      createdAt: new Date().toISOString(),
+                    };
+                    localStorage.setItem(
+                      "sweetspot_profile",
+                      JSON.stringify(profile)
+                    );
+                    window.location.href = "/dna";
+                  }}
+                >
                   View My Cultural DNA Card
                 </GradientButton>
               </div>
             </GlassCard>
           </motion.div>
         </div>
+        <Toast message={toast} visible={!!toast} />
       </>
     );
   }
@@ -281,6 +340,7 @@ export default function QuizPage() {
             placeholder={step.placeholder}
             color={step.color}
             suggestions={step.suggestions}
+            entityType={step.entityType}
             selections={currentSelections}
             onAddSelection={handleAdd}
             onRemoveSelection={handleRemove}

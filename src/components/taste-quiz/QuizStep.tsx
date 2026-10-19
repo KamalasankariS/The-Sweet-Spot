@@ -1,8 +1,17 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useCallback } from "react";
-import { GlassCard } from "@/components/ui/GlassCard";
+import { useState, useCallback, useRef, useEffect } from "react";
+
+interface QlooResult {
+  name: string;
+  entity_id: string;
+  types: string[];
+  properties?: {
+    image?: { url?: string };
+    short_description?: string;
+  };
+}
 
 interface QuizStepProps {
   category: string;
@@ -11,7 +20,8 @@ interface QuizStepProps {
   placeholder: string;
   color: string;
   suggestions: string[];
-  onAddSelection: (item: string) => void;
+  entityType?: string; // Qloo entity type for live search
+  onAddSelection: (item: string, entityId?: string, imageUrl?: string) => void;
   onRemoveSelection: (item: string) => void;
   selections: string[];
   maxSelections?: number;
@@ -24,6 +34,7 @@ export function QuizStep({
   placeholder,
   color,
   suggestions,
+  entityType,
   onAddSelection,
   onRemoveSelection,
   selections,
@@ -31,12 +42,64 @@ export function QuizStep({
 }: QuizStepProps) {
   const [inputValue, setInputValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [qlooResults, setQlooResults] = useState<QlooResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Live Qloo search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!inputValue.trim() || inputValue.length < 2) {
+      setQlooResults([]);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const params = new URLSearchParams({ q: inputValue, take: "6" });
+        if (entityType) params.set("types", entityType);
+        const res = await fetch(`/api/qloo/search?${params}`);
+        const data = await res.json();
+        const query = inputValue.toLowerCase().trim();
+        const results = (data.results || [])
+          .filter((r: QlooResult) => !selections.includes(r.name))
+          .sort((a: QlooResult, b: QlooResult) => {
+            const aName = a.name.toLowerCase();
+            const bName = b.name.toLowerCase();
+            // Exact match first
+            const aExact = aName === query ? 0 : 1;
+            const bExact = bName === query ? 0 : 1;
+            if (aExact !== bExact) return aExact - bExact;
+            // Solo artist (shorter name, no "&", ",", "x", "feat") ranks higher
+            const collab = /[&,]| x | feat/i;
+            const aCollab = collab.test(a.name) ? 1 : 0;
+            const bCollab = collab.test(b.name) ? 1 : 0;
+            if (aCollab !== bCollab) return aCollab - bCollab;
+            // Closer name length to query = better match
+            return aName.length - bName.length;
+          });
+        setQlooResults(results);
+      } catch {
+        setQlooResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [inputValue, entityType, selections]);
 
   const handleAdd = useCallback(
-    (item: string) => {
+    (item: string, entityId?: string, imageUrl?: string) => {
       if (selections.length < maxSelections && !selections.includes(item)) {
-        onAddSelection(item);
+        onAddSelection(item, entityId, imageUrl);
         setInputValue("");
+        setQlooResults([]);
       }
     },
     [selections, maxSelections, onAddSelection]
@@ -44,7 +107,12 @@ export function QuizStep({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && inputValue.trim()) {
-      handleAdd(inputValue.trim());
+      // If there's a top Qloo result, use it
+      if (qlooResults.length > 0) {
+        handleAdd(qlooResults[0].name, qlooResults[0].entity_id, qlooResults[0].properties?.image?.url);
+      } else {
+        handleAdd(inputValue.trim());
+      }
     }
   };
 
@@ -53,6 +121,8 @@ export function QuizStep({
       !selections.includes(s) &&
       (inputValue === "" || s.toLowerCase().includes(inputValue.toLowerCase()))
   );
+
+  const showQlooDropdown = inputValue.length >= 2 && (qlooResults.length > 0 || searching);
 
   return (
     <motion.div
@@ -108,9 +178,10 @@ export function QuizStep({
         </AnimatePresence>
       </div>
 
-      {/* Input */}
+      {/* Input with Qloo autocomplete */}
       <div className="relative mb-6">
         <input
+          ref={inputRef}
           type="text"
           value={inputValue}
           onChange={(e) => {
@@ -127,10 +198,114 @@ export function QuizStep({
             {selections.length}/{maxSelections}
           </span>
         )}
+        {searching && (
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-white/30">
+            ...
+          </span>
+        )}
+
+        {/* Qloo autocomplete dropdown */}
+        <AnimatePresence>
+          {showQlooDropdown && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.15 }}
+              style={{
+                position: "absolute",
+                top: "calc(100% + 0.5rem)",
+                left: 0,
+                right: 0,
+                zIndex: 20,
+                background: "rgba(15, 15, 22, 0.95)",
+                backdropFilter: "blur(20px)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "1rem",
+                overflow: "hidden",
+                maxHeight: "16rem",
+                overflowY: "auto",
+              }}
+            >
+              {searching && qlooResults.length === 0 ? (
+                <div style={{ padding: "1rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.8rem" }}>
+                  Searching Qloo...
+                </div>
+              ) : (
+                qlooResults.map((result) => (
+                  <button
+                    key={result.entity_id}
+                    onClick={() => handleAdd(result.name, result.entity_id, result.properties?.image?.url)}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "0.75rem 1rem",
+                      background: "transparent",
+                      border: "none",
+                      borderBottom: "1px solid rgba(255,255,255,0.04)",
+                      color: "white",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
+                  >
+                    {/* Entity image */}
+                    {result.properties?.image?.url ? (
+                      <img
+                        src={result.properties.image.url}
+                        alt=""
+                        style={{
+                          width: "2.5rem",
+                          height: "2.5rem",
+                          borderRadius: "0.5rem",
+                          objectFit: "cover",
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: "2.5rem",
+                          height: "2.5rem",
+                          borderRadius: "0.5rem",
+                          background: `${color}20`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "1rem",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {icon}
+                      </div>
+                    )}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: "0.875rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {result.name}
+                      </div>
+                      {result.properties?.short_description && (
+                        <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {result.properties.short_description}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontSize: "0.6rem", color: `${color}80`, flexShrink: 0 }}>
+                      Qloo
+                    </div>
+                  </button>
+                ))
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Suggestion chips */}
-      {showSuggestions && filteredSuggestions.length > 0 && (
+      {/* Suggestion chips (hide when Qloo dropdown is showing) */}
+      {!showQlooDropdown && showSuggestions && filteredSuggestions.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

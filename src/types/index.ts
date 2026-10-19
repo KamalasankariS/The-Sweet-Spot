@@ -9,7 +9,9 @@ export interface QlooEntity {
   entity_id?: string;
   name: string;
   types: string[];
-  properties: Record<string, string | number | boolean>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  properties: Record<string, any>;
+  disambiguation?: string;
   tags?: QlooTag[];
   popularity?: number;
   query?: {

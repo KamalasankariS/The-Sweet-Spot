@@ -38,6 +38,7 @@ export function Navbar() {
           <div className="hidden md:flex" style={{ alignItems: "center", gap: "2rem" }}>
             <NavLink href="/quiz">Take the Quiz</NavLink>
             <NavLink href="/group">My Groups</NavLink>
+            <NavLink href="/profile">Profile</NavLink>
           </div>
 
           {/* CTA */}

@@ -45,34 +45,32 @@ export async function POST(req: NextRequest) {
     const signalEntities = uniqueEntityIds.join(",");
 
     const [diningRecs, nightlifeRecs, wildcardRecs] = await Promise.all([
-      // Dining: places filtered to restaurant-like tags
+      // Dining: restaurants
       getInsights({
         filterType: "urn:entity:place",
         signalEntities,
         filterLocationQuery: location,
-        filterTags: "urn:tag:restaurants",
+        filterTags: "urn:tag:genre:place:restaurant",
         explainability: true,
         take: 5,
       }).catch(() => null),
 
-      // Nightlife: bars, clubs, venues
+      // Nightlife: bars, clubs
       getInsights({
         filterType: "urn:entity:place",
         signalEntities,
         filterLocationQuery: location,
-        filterTags: "urn:tag:bars,urn:tag:nightlife",
+        filterTags: "urn:tag:genre:place:restaurant:bar,urn:tag:category:place:bar",
         filterTagsOperator: "union",
         explainability: true,
         take: 5,
       }).catch(() => null),
 
-      // Wildcard: broader entertainment/experiences
+      // Wildcard: broader places (no tag filter — just location + taste)
       getInsights({
         filterType: "urn:entity:place",
         signalEntities,
         filterLocationQuery: location,
-        filterTags: "urn:tag:entertainment,urn:tag:attractions",
-        filterTagsOperator: "union",
         explainability: true,
         take: 5,
       }).catch(() => null),

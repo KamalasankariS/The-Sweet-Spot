@@ -31,10 +31,10 @@ export function GradientButton({
 
   const variants = {
     primary:
-      "bg-gradient-to-r from-accent-orange via-accent-pink to-accent-purple text-white",
+      "bg-gradient-to-r from-accent-rose via-accent-lavender to-accent-sky text-white",
     outline:
-      "bg-transparent border border-white/10 text-white hover:border-white/20",
-    ghost: "bg-white/5 text-white hover:bg-white/10",
+      "bg-transparent border border-border-light text-text-primary hover:border-accent-rose/40",
+    ghost: "bg-text-primary/5 text-text-primary hover:bg-text-primary/10",
   };
 
   return (
@@ -53,7 +53,7 @@ export function GradientButton({
     >
       {variant === "primary" && (
         <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-accent-orange via-accent-pink to-accent-purple opacity-0"
+          className="absolute inset-0 bg-gradient-to-r from-accent-rose via-accent-lavender to-accent-sky opacity-0"
           whileHover={{ opacity: 1 }}
           style={{ backgroundSize: "200% 200%" }}
           animate={{

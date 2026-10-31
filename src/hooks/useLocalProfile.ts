@@ -21,6 +21,12 @@ export interface ProfileExtras {
   comfortFood?: string;
   comfortFoodImage?: string;
   shareConsent?: boolean;
+  orientation?: "straight" | "gay" | "lesbian" | "bisexual" | "other" | "prefer-not-to-say";
+  orientationVisible?: boolean; // false = hidden from other users (default)
+  regionCountry?: string;
+  regionState?: string;
+  regionCity?: string; // always hidden from other users
+  dietaryPreferences?: string[]; // e.g. ["vegetarian", "gluten-free"]
 }
 
 export interface LocalProfile {

@@ -24,14 +24,15 @@ export function Toast({ message, visible }: ToastProps) {
             zIndex: 100,
             padding: "0.75rem 1.5rem",
             borderRadius: "1rem",
-            background: "rgba(255,255,255,0.1)",
+            background: "rgba(255,255,255,0.9)",
             backdropFilter: "blur(20px)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            color: "white",
+            border: "1px solid rgba(232,224,214,0.6)",
+            color: "#2D2A26",
             fontSize: "0.85rem",
             fontWeight: 500,
             whiteSpace: "nowrap",
             pointerEvents: "none",
+            boxShadow: "0 4px 16px rgba(45,42,38,0.08)",
           }}
         >
           {message}

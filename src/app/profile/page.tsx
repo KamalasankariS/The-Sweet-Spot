@@ -1,5 +1,7 @@
 "use client";
 
+import { IconMusic, IconRestaurant, IconTheater , Icon } from "@/components/icons/SweetSpotIcons";
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
@@ -9,30 +11,38 @@ import { GradientButton } from "@/components/ui/GradientButton";
 import { Toast } from "@/components/ui/Toast";
 import { moderateName, moderateBio, moderateImageFile, resizeImage } from "@/lib/moderation";
 import type { LocalProfile, ProfileExtras } from "@/hooks/useLocalProfile";
+import { useProfile } from "@/hooks/useProfile";
+import { getCuisineFlag, FOOD_SUGGESTIONS } from "@/lib/cuisineFlags";
+import { useAuth } from "@/hooks/useAuth";
+import { createClient } from "@/lib/supabase/client";
+import { ShareProfileModal } from "@/components/ui/ShareProfileModal";
+import { UsernameInput } from "@/components/ui/UsernameInput";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { ALL_COUNTRIES } from "@/lib/countries";
 
 const AVATAR_OPTIONS = [
-  "🎧", "🎤", "🎸", "🎬", "🍕", "🌮", "🍣", "🎨",
-  "🌊", "🔥", "🌸", "🦋", "🐱", "🐶", "🌙", "☀️",
-  "💎", "🎯", "🧊", "🪩", "🫧", "🍷", "🌿", "🪐",
+  "music", "mic", "music", "theater", "restaurant", "taco", "restaurant", "palette",
+  "tree", "fire", "tree", "magic", "heart", "heart", "crystal", "sun",
+  "sparkle", "target", "coffee", "disco", "sparkle", "cocktail", "tree", "crystal",
 ];
 
 const MOOD_OPTIONS = [
-  { emoji: "😌", label: "Chill" },
-  { emoji: "🔥", label: "Hyped" },
-  { emoji: "🥰", label: "Romantic" },
-  { emoji: "🤪", label: "Chaotic" },
-  { emoji: "😎", label: "Cool" },
-  { emoji: "🥱", label: "Low-key" },
-  { emoji: "✨", label: "Magical" },
-  { emoji: "🫠", label: "Melting" },
-  { emoji: "💀", label: "Dead" },
-  { emoji: "🤓", label: "Nerdy" },
-  { emoji: "👻", label: "Ghosting" },
-  { emoji: "🦊", label: "Foxy" },
+  { emoji: "heart", label: "Chill" },
+  { emoji: "fire", label: "Hyped" },
+  { emoji: "heart", label: "Romantic" },
+  { emoji: "fire", label: "Chaotic" },
+  { emoji: "star", label: "Cool" },
+  { emoji: "coffee", label: "Low-key" },
+  { emoji: "sparkle", label: "Magical" },
+  { emoji: "fire", label: "Melting" },
+  { emoji: "crystal", label: "Dead" },
+  { emoji: "sparkle", label: "Nerdy" },
+  { emoji: "crystal", label: "Ghosting" },
+  { emoji: "magic", label: "Foxy" },
 ];
 
 const CATEGORY_LABELS = ["Music", "Movies & TV", "Dining", "Nightlife & Vibes", "Brands & Style"];
-const CATEGORY_ICONS = ["🎵", "🎬", "🍽️", "🌙", "✨"];
+const CATEGORY_ICONS = ["music", "theater", "restaurant", "crystal", "sparkle"];
 
 interface QlooSongResult {
   name: string;
@@ -171,10 +181,10 @@ function getPersonalizationLevel(profile: LocalProfile): { level: number; label:
   score += Math.min((profile.tasteHistory?.length || 0) * 3, 15);
   score += Math.min((profile.eventsAttended || 0) * 5, 15);
   const pct = Math.min(score, 100);
-  if (pct < 25) return { level: pct, label: "Getting Started", color: "#f97316" };
-  if (pct < 50) return { level: pct, label: "Taking Shape", color: "#ec4899" };
-  if (pct < 75) return { level: pct, label: "Well Defined", color: "#8b5cf6" };
-  return { level: pct, label: "Fully Realized", color: "#06b6d4" };
+  if (pct < 25) return { level: pct, label: "Getting Started", color: "#E8B88A" };
+  if (pct < 50) return { level: pct, label: "Taking Shape", color: "#E8788A" };
+  if (pct < 75) return { level: pct, label: "Well Defined", color: "#B8A0D2" };
+  return { level: pct, label: "Fully Realized", color: "#8CBFD4" };
 }
 
 // --- Qloo autocomplete hook for song/movie/food fields ---
@@ -224,6 +234,8 @@ function useQlooAutocomplete(entityType: string) {
 }
 
 export default function ProfilePage() {
+  const { user } = useAuth();
+  const { profile: supaProfile, saveProfile: saveToSupabase } = useProfile();
   const [profile, setProfile] = useState<LocalProfile | null>(null);
   const [editing, setEditing] = useState(false);
   const [toast, setToast] = useState("");
@@ -231,11 +243,14 @@ export default function ProfilePage() {
   // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
+  // Share modal state
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
   // Share consent state
   const [shareRequests, setShareRequests] = useState<{ from: string; timestamp: string }[]>([]);
 
   // Edit state
-  const [avatarEmoji, setAvatarEmoji] = useState("🎧");
+  const [avatarEmoji, setAvatarEmoji] = useState("music");
   const [avatarImage, setAvatarImage] = useState<string | undefined>(undefined);
   const [moodEmoji, setMoodEmoji] = useState("");
   const [bio, setBio] = useState("");
@@ -249,7 +264,17 @@ export default function ProfilePage() {
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [profileShareable, setProfileShareable] = useState(false);
+  const [orientation, setOrientation] = useState<ProfileExtras["orientation"]>(undefined);
+  const [orientationVisible, setOrientationVisible] = useState(false);
+  const [regionCountry, setRegionCountry] = useState("");
+  const [regionState, setRegionState] = useState("");
+  const [regionCity, setRegionCity] = useState("");
+  const [dietaryPreferences, setDietaryPreferences] = useState<string[]>([]);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editUsername, setEditUsername] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const supabase = createClient();
 
   // Music search (iTunes: artist + song + artwork), movie (Qloo)
   const musicSearch = useMusicSearch();
@@ -301,29 +326,30 @@ export default function ProfilePage() {
     };
   }, [showToast]);
 
+  // Hydrate local state from useProfile hook (Supabase -> localStorage fallback)
   useEffect(() => {
-    const saved = localStorage.getItem("sweetspot_profile");
-    if (saved) {
-      try {
-        const p: LocalProfile = JSON.parse(saved);
-        setProfile(p);
-        setProfileShareable(p.extras?.shareConsent ?? false);
-        if (p.extras) {
-          setAvatarEmoji(p.extras.avatarEmoji || "🎧");
-          setAvatarImage(p.extras.avatarImage);
-          setMoodEmoji(p.extras.moodEmoji || "");
-          setBio(p.extras.bio || "");
-          setCurrentSongArtist(p.extras.currentSongArtist || "");
-          setCurrentSong(p.extras.currentSong || "");
-          setCurrentSongImage(p.extras.currentSongImage);
-          setComfortMovie(p.extras.comfortMovie || "");
-          setComfortMovieImage(p.extras.comfortMovieImage);
-          setComfortFood(p.extras.comfortFood || "");
-          setComfortFoodImage(p.extras.comfortFoodImage);
-        }
-      } catch {
-        // ignore
-      }
+    const p = supaProfile;
+    if (!p) return;
+    setProfile(p);
+    setProfileShareable(p.extras?.shareConsent ?? false);
+    if (p.extras) {
+      setAvatarEmoji(p.extras.avatarEmoji || "music");
+      setAvatarImage(p.extras.avatarImage);
+      setMoodEmoji(p.extras.moodEmoji || "");
+      setBio(p.extras.bio || "");
+      setCurrentSongArtist(p.extras.currentSongArtist || "");
+      setCurrentSong(p.extras.currentSong || "");
+      setCurrentSongImage(p.extras.currentSongImage);
+      setComfortMovie(p.extras.comfortMovie || "");
+      setComfortMovieImage(p.extras.comfortMovieImage);
+      setComfortFood(p.extras.comfortFood || "");
+      setComfortFoodImage(p.extras.comfortFoodImage);
+      setOrientation(p.extras.orientation);
+      setOrientationVisible(p.extras.orientationVisible ?? false);
+      setRegionCountry(p.extras.regionCountry || "");
+      setRegionState(p.extras.regionState || "");
+      setRegionCity(p.extras.regionCity || "");
+      setDietaryPreferences(p.extras.dietaryPreferences || []);
     }
 
     // Load pending share requests
@@ -331,7 +357,7 @@ export default function ProfilePage() {
     if (reqs) {
       try { setShareRequests(JSON.parse(reqs)); } catch { /* ignore */ }
     }
-  }, []);
+  }, [supaProfile]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -364,7 +390,7 @@ export default function ProfilePage() {
       ...profile,
       extras: { ...profile.extras, shareConsent: newVal },
     };
-    localStorage.setItem("sweetspot_profile", JSON.stringify(updated));
+    saveToSupabase(updated as LocalProfile);
     setProfile(updated as LocalProfile);
     showToast(newVal ? "Profile sharing enabled" : "Profile sharing disabled — others can't share your profile");
   };
@@ -398,6 +424,12 @@ export default function ProfilePage() {
       comfortFood: comfortFood.trim() || undefined,
       comfortFoodImage: comfortFoodImage || undefined,
       shareConsent: profileShareable,
+      orientation: orientation || undefined,
+      orientationVisible,
+      regionCountry: regionCountry || undefined,
+      regionState: regionState || undefined,
+      regionCity: regionCity || undefined,
+      dietaryPreferences: dietaryPreferences.length > 0 ? dietaryPreferences : undefined,
     };
 
     const history = [...(profile.tasteHistory || [])];
@@ -411,14 +443,52 @@ export default function ProfilePage() {
       history.push({ updatedAt: now, field: "comfortFood", value: comfortFood.trim() });
 
     const updated: LocalProfile = { ...profile, extras: newExtras, tasteHistory: history };
-    localStorage.setItem("sweetspot_profile", JSON.stringify(updated));
+    // Save to Supabase + localStorage via hook
+    saveToSupabase(updated);
     setProfile(updated);
+
+    // Save name/username to Supabase auth metadata if changed
+    if (supabase && (editFirstName.trim() || editLastName.trim() || editUsername.trim())) {
+      const data: Record<string, string> = {};
+      if (editFirstName.trim()) data.first_name = editFirstName.trim();
+      if (editLastName.trim()) data.last_name = editLastName.trim();
+      if (editUsername.trim()) data.username = editUsername.trim();
+      if (editFirstName.trim() && editLastName.trim()) {
+        data.display_name = `${editFirstName.trim()} ${editLastName.trim()}`;
+      }
+      supabase.auth.updateUser({ data }).catch(() => {});
+    }
+
     setEditing(false);
     musicSearch.clear();
     movieSearch.clear();
     foodSearch.clear();
     showToast("Profile updated!");
   };
+
+  if (!user) {
+    return (
+      <>
+        <AnimatedBackground />
+        <Navbar />
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "6rem 2rem 2rem" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "center" }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(184,160,210,0.8)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2.5" ry="2.5" />
+                <path d="M7 11V7a5 5 0 0110 0v4" />
+                <circle cx="12" cy="16.5" r="1.5" fill="rgba(232,120,138,0.6)" stroke="none" />
+                <line x1="12" y1="18" x2="12" y2="19.5" stroke="rgba(232,120,138,0.6)" strokeWidth="1.5" />
+              </svg>
+            </div>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.75rem" }}>Sign In Required</h2>
+            <p style={{ color: "rgba(107,100,90,0.8)", marginBottom: "1.5rem" }}>Sign in to view and manage your profile.</p>
+            <a href="/auth"><GradientButton>Sign In</GradientButton></a>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (!profile) {
     return (
@@ -427,9 +497,14 @@ export default function ProfilePage() {
         <Navbar />
         <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "6rem 2rem 2rem" }}>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>👤</div>
+            <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "center" }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(140,191,212,0.8)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M20 21a8 8 0 00-16 0" />
+              </svg>
+            </div>
             <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.75rem" }}>No Profile Yet</h2>
-            <p style={{ color: "rgba(255,255,255,0.4)", marginBottom: "1.5rem" }}>Take the quiz to create your taste profile.</p>
+            <p style={{ color: "rgba(107,100,90,0.8)", marginBottom: "1.5rem" }}>Take the quiz to create your taste profile.</p>
             <a href="/quiz"><GradientButton>Take the Quiz</GradientButton></a>
           </div>
         </div>
@@ -465,13 +540,13 @@ export default function ProfilePage() {
                 onClick={() => setLightboxOpen(true)}
                 style={{
                   width: "5rem", height: "5rem", borderRadius: "50%",
-                  border: "2px solid rgba(255,255,255,0.15)",
+                  border: "2px solid rgba(232,224,214,0.7)",
                   overflow: "hidden", margin: "0 auto 1rem",
                   cursor: "pointer", padding: 0, background: "transparent",
                   transition: "transform 0.2s, border-color 0.2s",
                 }}
-                onMouseOver={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}
-                onMouseOut={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; }}
+                onMouseOver={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.borderColor = "rgba(232,224,214,0.9)"; }}
+                onMouseOut={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.borderColor = "rgba(232,224,214,0.7)"; }}
               >
                 <img
                   src={extras.avatarImage}
@@ -483,25 +558,54 @@ export default function ProfilePage() {
             ) : (
               <div style={{
                 width: "5rem", height: "5rem", borderRadius: "50%",
-                background: "linear-gradient(135deg, rgba(249,115,22,0.2), rgba(236,72,153,0.2))",
-                border: "2px solid rgba(255,255,255,0.1)",
+                background: "linear-gradient(135deg, rgba(232,120,138,0.2), rgba(184,160,210,0.2))",
+                border: "2px solid rgba(232,224,214,0.6)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: "2.5rem", margin: "0 auto 1rem",
               }}>
-                {extras.avatarEmoji || profile.name[0]}
+                {extras.avatarEmoji ? <Icon name={extras.avatarEmoji} size={36} /> : (user?.user_metadata?.username || profile.name || "?")[0].toUpperCase()}
               </div>
             )}
 
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>
-              {profile.name}
-            </h1>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+              <h1 style={{ fontSize: "1.75rem", fontWeight: 700, margin: 0 }}>
+                {user?.user_metadata?.username || profile.name}
+              </h1>
+              {!editing && (
+                <button
+                  onClick={() => {
+                    setEditFirstName(user?.user_metadata?.first_name || "");
+                    setEditLastName(user?.user_metadata?.last_name || "");
+                    setEditUsername(user?.user_metadata?.username || "");
+                    setEditing(true);
+                  }}
+                  title="Edit profile"
+                  style={{
+                    background: "none", border: "none", cursor: "pointer", padding: "0.25rem",
+                    color: "rgba(107,100,90,0.4)", transition: "color 0.2s", display: "flex", alignItems: "center",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(107,100,90,0.8)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(107,100,90,0.4)")}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 3a2.85 2.85 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                    <path d="m15 5 4 4" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {user?.user_metadata?.first_name && user?.user_metadata?.last_name && (
+              <p style={{ fontSize: "0.85rem", color: "rgba(107,100,90,0.5)", marginBottom: "0.25rem" }}>
+                {user.user_metadata.first_name} {user.user_metadata.last_name}
+              </p>
+            )}
             {extras.moodEmoji && (
-              <span style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.4)" }}>
+              <span style={{ fontSize: "0.85rem", color: "rgba(107,100,90,0.8)" }}>
                 {MOOD_OPTIONS.find((m) => m.emoji === extras.moodEmoji)?.label || ""} {extras.moodEmoji}
               </span>
             )}
             {extras.bio && (
-              <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.875rem", marginTop: "0.5rem", maxWidth: "24rem", margin: "0.5rem auto 0" }}>
+              <p style={{ color: "rgba(107,100,90,0.7)", fontSize: "0.875rem", marginTop: "0.5rem", maxWidth: "24rem", margin: "0.5rem auto 0" }}>
                 {extras.bio}
               </p>
             )}
@@ -513,10 +617,10 @@ export default function ProfilePage() {
               <GlassCard hover={false} style={{ padding: "1rem 1.25rem", marginBottom: "1rem" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
-                    <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    <span style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                       Profile Sharing
                     </span>
-                    <p style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.2)", marginTop: "0.15rem" }}>
+                    <p style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.4)", marginTop: "0.15rem" }}>
                       {profileShareable
                         ? "Others can share your profile with friends"
                         : "Your profile cannot be shared without your approval"}
@@ -526,7 +630,7 @@ export default function ProfilePage() {
                     onClick={toggleShareConsent}
                     style={{
                       width: "2.75rem", height: "1.5rem", borderRadius: "0.75rem",
-                      background: profileShareable ? "rgba(132,204,22,0.4)" : "rgba(255,255,255,0.08)",
+                      background: profileShareable ? "rgba(138,196,160,0.4)" : "rgba(45,42,38,0.06)",
                       border: "none", cursor: "pointer", position: "relative",
                       transition: "background 0.2s", flexShrink: 0,
                     }}
@@ -542,13 +646,13 @@ export default function ProfilePage() {
 
                 {/* Pending share requests */}
                 {shareRequests.length > 0 && (
-                  <div style={{ marginTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "0.75rem" }}>
-                    <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase" }}>
+                  <div style={{ marginTop: "0.75rem", borderTop: "1px solid rgba(232,224,214,0.4)", paddingTop: "0.75rem" }}>
+                    <span style={{ fontSize: "0.65rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase" }}>
                       Pending Requests
                     </span>
                     {shareRequests.map((req) => (
                       <div key={req.from} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.5rem" }}>
-                        <span style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.5)" }}>
+                        <span style={{ fontSize: "0.8rem", color: "rgba(107,100,90,0.8)" }}>
                           {req.from} wants to share your profile
                         </span>
                         <div style={{ display: "flex", gap: "0.375rem" }}>
@@ -556,8 +660,8 @@ export default function ProfilePage() {
                             onClick={() => handleShareRequest(req.from, true)}
                             style={{
                               padding: "0.25rem 0.5rem", borderRadius: "0.375rem",
-                              background: "rgba(132,204,22,0.15)", border: "1px solid rgba(132,204,22,0.3)",
-                              color: "rgba(132,204,22,0.8)", fontSize: "0.65rem", cursor: "pointer",
+                              background: "rgba(138,196,160,0.15)", border: "1px solid rgba(138,196,160,0.3)",
+                              color: "rgba(138,196,160,0.8)", fontSize: "0.65rem", cursor: "pointer",
                             }}
                           >
                             Approve
@@ -585,14 +689,14 @@ export default function ProfilePage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
             <GlassCard hover={false} style={{ padding: "1.25rem", marginBottom: "1rem" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                <span style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                   Taste Profile Depth
                 </span>
                 <span style={{ fontSize: "0.75rem", fontWeight: 600, color: personalization.color }}>
                   {personalization.label}
                 </span>
               </div>
-              <div style={{ height: "6px", borderRadius: "3px", background: "rgba(255,255,255,0.05)", overflow: "hidden" }}>
+              <div style={{ height: "6px", borderRadius: "3px", background: "rgba(45,42,38,0.04)", overflow: "hidden" }}>
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${personalization.level}%` }}
@@ -600,7 +704,7 @@ export default function ProfilePage() {
                   style={{ height: "100%", borderRadius: "3px", background: `linear-gradient(90deg, ${personalization.color}, ${personalization.color}80)` }}
                 />
               </div>
-              <p style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.2)", marginTop: "0.5rem" }}>
+              <p style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.4)", marginTop: "0.5rem" }}>
                 {personalization.level}% — {totalPicks} quiz picks
                 {(profile.eventsAttended || 0) > 0 && ` · ${profile.eventsAttended} events`}
                 {(profile.tasteHistory?.length || 0) > 0 && ` · ${profile.tasteHistory!.length} taste updates`}
@@ -612,7 +716,7 @@ export default function ProfilePage() {
           {(extras.currentSong || extras.comfortMovie || extras.comfortFood) && !editing && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
               <GlassCard hover={false} style={{ padding: "1.25rem", marginBottom: "1rem" }}>
-                <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.75rem" }}>
+                <span style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.75rem" }}>
                   Current Vibes
                 </span>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
@@ -625,13 +729,13 @@ export default function ProfilePage() {
                             width: "2.75rem", height: "2.75rem", borderRadius: "0.5rem", objectFit: "cover", flexShrink: 0,
                           }} />
                         ) : (
-                          <span style={{ fontSize: "1.5rem", width: "2.75rem", textAlign: "center", flexShrink: 0 }}>🎵</span>
+                          <span style={{ width: "2.75rem", textAlign: "center", flexShrink: 0, display: "flex", justifyContent: "center" }}><IconMusic size={24} /></span>
                         )}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.25)" }}>Stuck in my head</div>
-                          <div style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>
+                          <div style={{ fontSize: "0.65rem", color: "rgba(107,100,90,0.5)" }}>Stuck in my head</div>
+                          <div style={{ fontSize: "0.9rem", color: "#2D2A26", fontWeight: 500 }}>
                             {extras.currentSongArtist && (
-                              <span style={{ color: "rgba(255,255,255,0.5)" }}>{extras.currentSongArtist} — </span>
+                              <span style={{ color: "rgba(107,100,90,0.8)" }}>{extras.currentSongArtist} — </span>
                             )}
                             {extras.currentSong}
                           </div>
@@ -666,11 +770,11 @@ export default function ProfilePage() {
                           width: "2.75rem", height: "3.75rem", borderRadius: "0.375rem", objectFit: "cover", flexShrink: 0,
                         }} />
                       ) : (
-                        <span style={{ fontSize: "1.5rem", width: "2.75rem", textAlign: "center", flexShrink: 0 }}>🎬</span>
+                        <span style={{ width: "2.75rem", textAlign: "center", flexShrink: 0, display: "flex", justifyContent: "center" }}><IconTheater size={24} /></span>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.25)" }}>Comfort watch</div>
-                        <div style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>{extras.comfortMovie}</div>
+                        <div style={{ fontSize: "0.65rem", color: "rgba(107,100,90,0.5)" }}>Comfort watch</div>
+                        <div style={{ fontSize: "0.9rem", color: "#2D2A26", fontWeight: 500 }}>{extras.comfortMovie}</div>
                       </div>
                     </div>
                   )}
@@ -681,11 +785,11 @@ export default function ProfilePage() {
                           width: "2.75rem", height: "2.75rem", borderRadius: "0.5rem", objectFit: "cover", flexShrink: 0,
                         }} />
                       ) : (
-                        <span style={{ fontSize: "1.5rem", width: "2.75rem", textAlign: "center", flexShrink: 0 }}>🍽️</span>
+                        <span style={{ width: "2.75rem", textAlign: "center", flexShrink: 0, display: "flex", justifyContent: "center" }}><IconRestaurant size={24} /></span>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.25)" }}>Comfort food</div>
-                        <div style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>{extras.comfortFood}</div>
+                        <div style={{ fontSize: "0.65rem", color: "rgba(107,100,90,0.5)" }}>Comfort food</div>
+                        <div style={{ fontSize: "0.9rem", color: "#2D2A26", fontWeight: 500 }}>{extras.comfortFood}</div>
                       </div>
                     </div>
                   )}
@@ -698,7 +802,7 @@ export default function ProfilePage() {
           {!editing && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
               <GlassCard hover={false} style={{ padding: "1.25rem", marginBottom: "1rem" }}>
-                <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.75rem" }}>
+                <span style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.75rem" }}>
                   Taste DNA
                 </span>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
@@ -709,15 +813,15 @@ export default function ProfilePage() {
                     return (
                       <div key={i}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}>
-                          <span style={{ fontSize: "0.9rem" }}>{CATEGORY_ICONS[i]}</span>
-                          <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.25)" }}>{cat}</span>
+                          <Icon name={CATEGORY_ICONS[i]} size={16} />
+                          <span style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.5)" }}>{cat}</span>
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", paddingLeft: "1.4rem" }}>
                           {picks.map((pick) => (
                             <div key={pick} style={{
                               display: "flex", alignItems: "center", gap: "0.4rem",
                               padding: "0.3rem 0.6rem 0.3rem 0.3rem", borderRadius: "0.5rem",
-                              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
+                              background: "rgba(45,42,38,0.03)", border: "1px solid rgba(232,224,214,0.5)",
                             }}>
                               {images[pick] ? (
                                 <img src={images[pick]} alt="" draggable={false} style={{
@@ -725,17 +829,34 @@ export default function ProfilePage() {
                                   borderRadius: "0.25rem", objectFit: "cover", flexShrink: 0,
                                 }} />
                               ) : (
-                                <span style={{ width: "1.75rem", height: "1.75rem", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", flexShrink: 0, borderRadius: "0.25rem", background: "rgba(255,255,255,0.03)" }}>
-                                  {CATEGORY_ICONS[i]}
+                                <span style={{ width: "1.75rem", height: "1.75rem", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, borderRadius: "0.25rem", background: "rgba(45,42,38,0.02)" }}>
+                                  <Icon name={CATEGORY_ICONS[i]} size={14} />
                                 </span>
                               )}
-                              <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)" }}>{pick}</span>
+                              <span style={{ fontSize: "0.75rem", color: "rgba(107,100,90,0.85)" }}>{pick}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Retake quiz button */}
+                <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(232,224,214,0.4)" }}>
+                  <a
+                    href="/quiz"
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: "0.4rem",
+                      fontSize: "0.8rem", color: "rgba(107,100,90,0.6)",
+                      textDecoration: "underline", textUnderlineOffset: "3px",
+                    }}
+                  >
+                    Retake the Taste Quiz
+                  </a>
+                  <p style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.35)", marginTop: "0.25rem" }}>
+                    Update your taste DNA with fresh picks
+                  </p>
                 </div>
               </GlassCard>
             </motion.div>
@@ -745,7 +866,7 @@ export default function ProfilePage() {
           {!editing && (profile.tasteHistory?.length || 0) > 0 && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
               <GlassCard hover={false} style={{ padding: "1.25rem", marginBottom: "1rem" }}>
-                <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.75rem" }}>
+                <span style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.75rem" }}>
                   Taste Evolution
                 </span>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
@@ -754,11 +875,11 @@ export default function ProfilePage() {
                     const date = new Date(entry.updatedAt);
                     return (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.75rem" }}>
-                        <span style={{ color: "rgba(255,255,255,0.15)", fontFamily: "monospace", fontSize: "0.65rem", flexShrink: 0 }}>
+                        <span style={{ color: "rgba(107,100,90,0.35)", fontFamily: "monospace", fontSize: "0.65rem", flexShrink: 0 }}>
                           {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </span>
-                        <span style={{ color: "rgba(255,255,255,0.3)" }}>{fieldLabels[entry.field] || entry.field}:</span>
-                        <span style={{ color: "rgba(255,255,255,0.5)" }}>{entry.value}</span>
+                        <span style={{ color: "rgba(107,100,90,0.6)" }}>{fieldLabels[entry.field] || entry.field}:</span>
+                        <span style={{ color: "rgba(107,100,90,0.8)" }}>{entry.value}</span>
                       </div>
                     );
                   })}
@@ -771,9 +892,55 @@ export default function ProfilePage() {
           {editing && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
               <GlassCard hover={false} style={{ padding: "1.5rem", marginBottom: "1rem" }}>
+                {/* Name & username */}
+                <div style={{ marginBottom: "1.25rem" }}>
+                  <label style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
+                    Your Name
+                  </label>
+                  <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                    <input
+                      type="text"
+                      value={editFirstName}
+                      onChange={(e) => setEditFirstName(e.target.value)}
+                      placeholder="First name"
+                      style={{
+                        flex: 1, padding: "0.6rem 0.75rem", borderRadius: "0.5rem",
+                        border: "1px solid rgba(232,224,214,0.6)", background: "rgba(255,255,255,0.6)",
+                        fontSize: "0.85rem", color: "rgba(45,42,38,0.9)", outline: "none",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                    <input
+                      type="text"
+                      value={editLastName}
+                      onChange={(e) => setEditLastName(e.target.value)}
+                      placeholder="Last name"
+                      style={{
+                        flex: 1, padding: "0.6rem 0.75rem", borderRadius: "0.5rem",
+                        border: "1px solid rgba(232,224,214,0.6)", background: "rgba(255,255,255,0.6)",
+                        fontSize: "0.85rem", color: "rgba(45,42,38,0.9)", outline: "none",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+                  <label style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
+                    Username
+                  </label>
+                  <UsernameInput
+                    value={editUsername}
+                    onChange={setEditUsername}
+                    style={{
+                      width: "100%", padding: "0.6rem 0.75rem", borderRadius: "0.5rem",
+                      border: "1px solid rgba(232,224,214,0.6)", background: "rgba(255,255,255,0.6)",
+                      fontSize: "0.85rem", color: "rgba(45,42,38,0.9)", outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+
                 {/* Avatar picker */}
                 <div style={{ marginBottom: "1.25rem" }}>
-                  <label style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
+                  <label style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
                     Profile Pic
                   </label>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -781,20 +948,20 @@ export default function ProfilePage() {
                       onClick={() => setShowAvatarPicker(!showAvatarPicker)}
                       style={{
                         width: "3.5rem", height: "3.5rem", borderRadius: "50%",
-                        background: avatarImage ? "transparent" : "linear-gradient(135deg, rgba(249,115,22,0.2), rgba(236,72,153,0.2))",
-                        border: "2px solid rgba(255,255,255,0.1)",
+                        background: avatarImage ? "transparent" : "linear-gradient(135deg, rgba(232,120,138,0.2), rgba(184,160,210,0.2))",
+                        border: "2px solid rgba(232,224,214,0.6)",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         cursor: "pointer", transition: "border-color 0.2s",
                         overflow: "hidden", padding: 0, flexShrink: 0,
                         fontSize: avatarImage ? "0" : "1.75rem",
                       }}
-                      onMouseOver={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; }}
-                      onMouseOut={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
+                      onMouseOver={(e) => { e.currentTarget.style.borderColor = "rgba(232,224,214,0.8)"; }}
+                      onMouseOut={(e) => { e.currentTarget.style.borderColor = "rgba(232,224,214,0.6)"; }}
                     >
                       {avatarImage ? (
                         <img src={avatarImage} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} draggable={false} />
                       ) : (
-                        avatarEmoji || profile.name[0]
+                        avatarEmoji ? <Icon name={avatarEmoji} size={28} /> : (user?.user_metadata?.username || profile.name || "?")[0].toUpperCase()
                       )}
                     </button>
                     <button
@@ -802,8 +969,8 @@ export default function ProfilePage() {
                       disabled={uploadingImage}
                       style={{
                         padding: "0.4rem 0.75rem", borderRadius: "0.5rem",
-                        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                        color: "rgba(255,255,255,0.5)", fontSize: "0.75rem",
+                        background: "rgba(45,42,38,0.04)", border: "1px solid rgba(232,224,214,0.6)",
+                        color: "rgba(107,100,90,0.8)", fontSize: "0.75rem",
                         cursor: uploadingImage ? "wait" : "pointer", transition: "all 0.15s",
                       }}
                     >
@@ -815,7 +982,7 @@ export default function ProfilePage() {
                     />
                     {avatarImage && (
                       <button
-                        onClick={() => { setAvatarImage(undefined); setAvatarEmoji("🎧"); }}
+                        onClick={() => { setAvatarImage(undefined); setAvatarEmoji("music"); }}
                         style={{
                           padding: "0.4rem 0.75rem", borderRadius: "0.5rem",
                           background: "transparent", border: "1px solid rgba(255,80,80,0.2)",
@@ -826,7 +993,7 @@ export default function ProfilePage() {
                       </button>
                     )}
                   </div>
-                  <p style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.15)", marginTop: "0.4rem" }}>
+                  <p style={{ fontSize: "0.65rem", color: "rgba(107,100,90,0.35)", marginTop: "0.4rem" }}>
                     JPEG, PNG, GIF, or WebP · Max 5 MB
                   </p>
                   {showAvatarPicker && !avatarImage && (
@@ -837,8 +1004,8 @@ export default function ProfilePage() {
                         <button key={emoji} onClick={() => { setAvatarEmoji(emoji); setShowAvatarPicker(false); }}
                           style={{
                             width: "2.25rem", height: "2.25rem", borderRadius: "0.5rem",
-                            background: avatarEmoji === emoji ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.03)",
-                            border: avatarEmoji === emoji ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.05)",
+                            background: avatarEmoji === emoji ? "rgba(45,42,38,0.08)" : "rgba(45,42,38,0.02)",
+                            border: avatarEmoji === emoji ? "1px solid rgba(232,224,214,0.8)" : "1px solid rgba(232,224,214,0.4)",
                             fontSize: "1.1rem", cursor: "pointer", display: "flex",
                             alignItems: "center", justifyContent: "center", transition: "all 0.15s",
                           }}
@@ -850,7 +1017,7 @@ export default function ProfilePage() {
 
                 {/* Mood */}
                 <div style={{ marginBottom: "1.25rem" }}>
-                  <label style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
+                  <label style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
                     Current Mood
                   </label>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }}>
@@ -858,9 +1025,9 @@ export default function ProfilePage() {
                       <button key={m.emoji} onClick={() => setMoodEmoji(moodEmoji === m.emoji ? "" : m.emoji)}
                         style={{
                           padding: "0.375rem 0.625rem", borderRadius: "9999px",
-                          background: moodEmoji === m.emoji ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.03)",
-                          border: moodEmoji === m.emoji ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.05)",
-                          fontSize: "0.75rem", color: moodEmoji === m.emoji ? "white" : "rgba(255,255,255,0.4)",
+                          background: moodEmoji === m.emoji ? "rgba(45,42,38,0.08)" : "rgba(45,42,38,0.02)",
+                          border: moodEmoji === m.emoji ? "1px solid rgba(232,224,214,0.8)" : "1px solid rgba(232,224,214,0.4)",
+                          fontSize: "0.75rem", color: moodEmoji === m.emoji ? "#2D2A26" : "rgba(107,100,90,0.8)",
                           cursor: "pointer", transition: "all 0.15s",
                         }}
                       >{m.emoji} {m.label}</button>
@@ -870,16 +1037,16 @@ export default function ProfilePage() {
 
                 {/* Bio */}
                 <div style={{ marginBottom: "1.25rem" }}>
-                  <label style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
-                    About You <span style={{ color: "rgba(255,255,255,0.15)" }}>({bio.length}/300)</span>
+                  <label style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
+                    About You <span style={{ color: "rgba(107,100,90,0.35)" }}>({bio.length}/300)</span>
                   </label>
                   <textarea
                     value={bio} onChange={(e) => { if (e.target.value.length <= 300) setBio(e.target.value); }}
                     placeholder="What makes you tick? Your vibe in a few words..." rows={3}
                     style={{
                       width: "100%", padding: "0.75rem 1rem", borderRadius: "0.75rem",
-                      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-                      color: "white", fontSize: "0.85rem", outline: "none", resize: "none", fontFamily: "inherit",
+                      background: "rgba(45,42,38,0.03)", border: "1px solid rgba(232,224,214,0.6)",
+                      color: "#2D2A26", fontSize: "0.85rem", outline: "none", resize: "none", fontFamily: "inherit",
                     }}
                   />
                 </div>
@@ -889,37 +1056,178 @@ export default function ProfilePage() {
                   value={currentSong}
                   artist={currentSongArtist}
                   onChange={(v) => { setCurrentSong(v); setCurrentSongArtist(""); setCurrentSongImage(undefined); musicSearch.setQuery(v); }}
-                  onSelect={(artist, track, img) => { setCurrentSongArtist(artist); setCurrentSong(track); setCurrentSongImage(img); musicSearch.clear(); }}
+                  onSelect={(artist, track, img) => { setCurrentSongArtist(artist); setCurrentSong(track); setCurrentSongImage(img); musicSearch.setQuery(""); }}
                   placeholder="e.g. Lost On You, Espresso..."
                   results={musicSearch.results}
                   searching={musicSearch.searching}
                   selectedImage={currentSongImage}
                 />
 
-                {/* Comfort Movie — with Qloo autocomplete */}
+                {/* Comfort Movie — with Qloo autocomplete + poster */}
                 <AutocompleteField
-                  label="🎬 Comfort movie"
+                  label="Comfort movie"
                   value={comfortMovie}
                   onChange={(v) => { setComfortMovie(v); setComfortMovieImage(undefined); movieSearch.setQuery(v); }}
-                  onSelect={(name, img) => { setComfortMovie(name); setComfortMovieImage(img); movieSearch.clear(); }}
+                  onSelect={(name, img) => { setComfortMovie(name); setComfortMovieImage(img); movieSearch.setQuery(""); }}
                   placeholder="e.g. The Grand Budapest Hotel"
                   results={movieSearch.results}
                   searching={movieSearch.searching}
                   selectedImage={comfortMovieImage}
+                  fallbackEmoji="theater"
+                  posterStyle={true}
                 />
 
                 {/* Comfort Food — Qloo food tags + Wikipedia images */}
                 <FoodAutocompleteField
-                  label="🍽️ Comfort food"
+                  label="Comfort food"
                   value={comfortFood}
                   onChange={(v) => { setComfortFood(v); setComfortFoodImage(undefined); foodSearch.setQuery(v); }}
-                  onSelect={(name, img) => { setComfortFood(name); setComfortFoodImage(img); foodSearch.clear(); }}
+                  onSelect={(name, img) => { setComfortFood(name); setComfortFoodImage(img || undefined); foodSearch.setQuery(""); }}
                   placeholder="e.g. Dal Tadka, Ramen"
                   results={foodSearch.results}
                   searching={foodSearch.searching}
                   selectedImage={comfortFoodImage}
                   style={{ marginBottom: "1.5rem" }}
                 />
+
+                {/* Orientation (private) */}
+                <div style={{ marginBottom: "1.5rem" }}>
+                  <label style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
+                    Orientation <span style={{ fontSize: "0.6rem", color: "rgba(107,100,90,0.35)", textTransform: "none", letterSpacing: "0" }}>(private by default)</span>
+                  </label>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "0.5rem" }}>
+                    {([
+                      { id: "straight" as const, label: "Straight" },
+                      { id: "gay" as const, label: "Gay" },
+                      { id: "lesbian" as const, label: "Lesbian" },
+                      { id: "bisexual" as const, label: "Bisexual" },
+                      { id: "other" as const, label: "Other" },
+                      { id: "prefer-not-to-say" as const, label: "Prefer not to say" },
+                    ]).map((o) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => setOrientation(orientation === o.id ? undefined : o.id)}
+                        style={{
+                          padding: "0.35rem 0.65rem", borderRadius: "1rem", fontSize: "0.7rem",
+                          border: `1px solid ${orientation === o.id ? "rgba(232,120,138,0.4)" : "rgba(232,224,214,0.5)"}`,
+                          background: orientation === o.id ? "rgba(232,120,138,0.08)" : "rgba(45,42,38,0.02)",
+                          color: orientation === o.id ? "#2D2A26" : "rgba(107,100,90,0.7)",
+                          cursor: "pointer", transition: "all 0.15s",
+                        }}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <button
+                      type="button"
+                      onClick={() => setOrientationVisible(!orientationVisible)}
+                      style={{
+                        width: "2.25rem", height: "1.25rem", borderRadius: "0.625rem",
+                        background: orientationVisible ? "rgba(138,196,160,0.4)" : "rgba(45,42,38,0.06)",
+                        border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s",
+                      }}
+                    >
+                      <div style={{
+                        width: "0.9rem", height: "0.9rem", borderRadius: "50%",
+                        background: "white", position: "absolute", top: "0.175rem",
+                        left: orientationVisible ? "1.15rem" : "0.2rem",
+                        transition: "left 0.2s",
+                      }} />
+                    </button>
+                    <span style={{ fontSize: "0.65rem", color: "rgba(107,100,90,0.5)" }}>
+                      {orientationVisible ? "Visible on your profile" : "Hidden from others"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Region (always hidden from others) */}
+                <div style={{ marginBottom: "1.5rem" }}>
+                  <label style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
+                    Your Region <span style={{ fontSize: "0.6rem", color: "rgba(107,100,90,0.35)", textTransform: "none", letterSpacing: "0" }}>(always hidden from others)</span>
+                  </label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <SearchableSelect
+                      options={ALL_COUNTRIES.map((c) => ({ value: c.code, label: c.name, icon: c.flag }))}
+                      value={regionCountry}
+                      onChange={setRegionCountry}
+                      placeholder="Country"
+                    />
+                    <input
+                      type="text"
+                      value={regionState}
+                      onChange={(e) => setRegionState(e.target.value)}
+                      placeholder="State / Region / Province"
+                      style={{
+                        width: "100%", padding: "0.6rem 0.75rem", borderRadius: "0.75rem",
+                        background: "white", border: "1px solid rgba(232,224,214,0.6)",
+                        color: "#2D2A26", fontSize: "0.85rem", outline: "none", boxSizing: "border-box",
+                      }}
+                    />
+                    <input
+                      type="text"
+                      value={regionCity}
+                      onChange={(e) => setRegionCity(e.target.value)}
+                      placeholder="City / Town"
+                      style={{
+                        width: "100%", padding: "0.6rem 0.75rem", borderRadius: "0.75rem",
+                        background: "white", border: "1px solid rgba(232,224,214,0.6)",
+                        color: "#2D2A26", fontSize: "0.85rem", outline: "none", boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "0.4rem" }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(107,100,90,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                    <span style={{ fontSize: "0.6rem", color: "rgba(107,100,90,0.4)" }}>
+                      Your location is never shared with other users
+                    </span>
+                  </div>
+                </div>
+
+                {/* Dietary Preferences */}
+                <div style={{ marginBottom: "1.5rem" }}>
+                  <label style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
+                    Dietary Preferences <span style={{ fontSize: "0.6rem", color: "rgba(107,100,90,0.35)", textTransform: "none", letterSpacing: "0" }}>(used for restaurant suggestions)</span>
+                  </label>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                    {[
+                      { id: "vegetarian", label: "Vegetarian", icon: "tree" },
+                      { id: "vegan", label: "Vegan", icon: "tree" },
+                      { id: "gluten-free", label: "Gluten-Free", icon: "tree" },
+                      { id: "halal", label: "Halal", icon: "star" },
+                      { id: "kosher", label: "Kosher", icon: "star" },
+                      { id: "dairy-free", label: "Dairy-Free", icon: "coffee" },
+                      { id: "nut-free", label: "Nut-Free", icon: "tree" },
+                      { id: "pescatarian", label: "Pescatarian", icon: "restaurant" },
+                      { id: "keto", label: "Keto", icon: "tree" },
+                      { id: "paleo", label: "Paleo", icon: "restaurant" },
+                      { id: "jain", label: "Jain", icon: "heart" },
+                      { id: "no-pork", label: "No Pork", icon: "target" },
+                      { id: "no-beef", label: "No Beef", icon: "restaurant" },
+                      { id: "low-sodium", label: "Low Sodium", icon: "restaurant" },
+                    ].map((d) => {
+                      const selected = dietaryPreferences.includes(d.id);
+                      return (
+                        <button
+                          key={d.id}
+                          onClick={() => setDietaryPreferences(selected ? dietaryPreferences.filter((p) => p !== d.id) : [...dietaryPreferences, d.id])}
+                          style={{
+                            padding: "0.4rem 0.65rem", borderRadius: "2rem",
+                            border: `1px solid ${selected ? "rgba(232,120,138,0.5)" : "rgba(232,224,214,0.6)"}`,
+                            background: selected ? "rgba(232,120,138,0.1)" : "white",
+                            color: selected ? "#E8788A" : "rgba(107,100,90,0.7)",
+                            fontSize: "0.75rem", cursor: "pointer", transition: "all 0.15s",
+                            display: "flex", alignItems: "center", gap: "0.3rem",
+                          }}
+                        >
+                          <Icon name={d.icon} size={14} /> {d.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 <div style={{ display: "flex", gap: "0.75rem" }}>
                   <GradientButton onClick={handleSave}>Save Profile</GradientButton>
@@ -935,8 +1243,16 @@ export default function ProfilePage() {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
               style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", justifyContent: "center", marginTop: "1.5rem" }}
             >
-              <GradientButton onClick={() => setEditing(true)}>Edit Profile</GradientButton>
+              <GradientButton onClick={() => {
+                setEditFirstName(user?.user_metadata?.first_name || "");
+                setEditLastName(user?.user_metadata?.last_name || "");
+                setEditUsername(user?.user_metadata?.username || "");
+                setEditing(true);
+              }}>Edit Profile</GradientButton>
               <GradientButton variant="outline" onClick={() => { window.location.href = "/dna"; }}>View DNA Card</GradientButton>
+              {user && (
+                <GradientButton variant="outline" onClick={() => setShareModalOpen(true)}>Share Profile</GradientButton>
+              )}
               <GradientButton variant="ghost" onClick={() => { window.location.href = "/quiz"; }}>Retake Quiz</GradientButton>
             </motion.div>
           )}
@@ -975,7 +1291,7 @@ export default function ProfilePage() {
                 style={{
                   maxWidth: "min(80vw, 24rem)", maxHeight: "min(80vh, 24rem)",
                   borderRadius: "1rem", objectFit: "contain",
-                  border: "2px solid rgba(255,255,255,0.1)",
+                  border: "2px solid rgba(232,224,214,0.6)",
                   pointerEvents: "none",
                 }}
               />
@@ -986,7 +1302,7 @@ export default function ProfilePage() {
                 pointerEvents: "none",
               }}>
                 <span style={{
-                  color: "rgba(255,255,255,0.08)", fontSize: "1rem", fontWeight: 700,
+                  color: "rgba(45,42,38,0.06)", fontSize: "1rem", fontWeight: 700,
                   transform: "rotate(-30deg)", letterSpacing: "0.2em",
                 }}>
                   THE SWEET SPOT
@@ -997,10 +1313,10 @@ export default function ProfilePage() {
                 onClick={() => setLightboxOpen(false)}
                 style={{
                   position: "absolute", top: "-2.5rem", right: "0",
-                  background: "rgba(255,255,255,0.1)", border: "none",
+                  background: "rgba(45,42,38,0.08)", border: "none",
                   borderRadius: "50%", width: "2rem", height: "2rem",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "white", cursor: "pointer", fontSize: "0.9rem",
+                  color: "#2D2A26", cursor: "pointer", fontSize: "0.9rem",
                 }}
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -1013,11 +1329,21 @@ export default function ProfilePage() {
       </AnimatePresence>
 
       <Toast message={toast} visible={!!toast} />
+
+      {/* Share Profile Modal */}
+      {user && (
+        <ShareProfileModal
+          open={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          profileOwnerId={user.id}
+          profileOwnerUsername={user.user_metadata?.username || user.email?.split("@")[0] || "user"}
+        />
+      )}
     </>
   );
 }
 
-// --- Autocomplete input component for song/movie/food fields ---
+// --- Autocomplete input component for movie/generic fields ---
 function AutocompleteField({
   label,
   value,
@@ -1027,6 +1353,8 @@ function AutocompleteField({
   results,
   searching,
   selectedImage,
+  fallbackEmoji = "music",
+  posterStyle = false,
   style: wrapperStyle,
 }: {
   label: string;
@@ -1037,23 +1365,46 @@ function AutocompleteField({
   results: QlooSongResult[];
   searching: boolean;
   selectedImage?: string;
+  fallbackEmoji?: string;
+  posterStyle?: boolean;
   style?: React.CSSProperties;
 }) {
   const [focused, setFocused] = useState(false);
-  const showDropdown = focused && value.length >= 2 && (results.length > 0 || searching);
+  const hasSelection = !!(value && selectedImage);
+  const showDropdown = focused && !hasSelection && value.length >= 2 && (results.length > 0 || searching);
+  const imgW = posterStyle ? "2.5rem" : "2.25rem";
+  const imgH = posterStyle ? "3.5rem" : "2.25rem";
+  const imgRadius = posterStyle ? "0.375rem" : "0.5rem";
 
   return (
     <div style={{ marginBottom: "1rem", position: "relative", ...wrapperStyle }}>
-      <label style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
+      <label style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
         {label}
       </label>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        {selectedImage && (
+
+      {/* Selected state with image */}
+      {hasSelection ? (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "0.75rem",
+          padding: "0.5rem 0.75rem", borderRadius: "0.75rem",
+          background: "rgba(184,160,210,0.08)", border: "1px solid rgba(184,160,210,0.2)",
+        }}>
           <img src={selectedImage} alt="" draggable={false} style={{
-            width: "2.25rem", height: "2.25rem", borderRadius: "0.5rem",
+            width: imgW, height: imgH, borderRadius: imgRadius,
             objectFit: "cover", flexShrink: 0,
           }} />
-        )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#2D2A26", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {value}
+            </div>
+          </div>
+          <button
+            onClick={() => { onChange(""); onSelect("", undefined); }}
+            style={{ background: "none", border: "none", color: "rgba(107,100,90,0.6)", cursor: "pointer", fontSize: "1.1rem", padding: "0.2rem", lineHeight: 1 }}
+            title="Remove"
+          >×</button>
+        </div>
+      ) : (
         <input
           type="text"
           value={value}
@@ -1063,24 +1414,21 @@ function AutocompleteField({
           placeholder={placeholder}
           style={{
             width: "100%", padding: "0.65rem 1rem", borderRadius: "0.75rem",
-            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-            color: "white", fontSize: "0.85rem", outline: "none", fontFamily: "inherit",
+            background: "rgba(45,42,38,0.03)", border: "1px solid rgba(232,224,214,0.6)",
+            color: "#2D2A26", fontSize: "0.85rem", outline: "none", fontFamily: "inherit",
           }}
         />
-      </div>
-      {searching && (
-        <span style={{ position: "absolute", right: "0.75rem", top: "2.1rem", fontSize: "0.7rem", color: "rgba(255,255,255,0.2)" }}>...</span>
       )}
 
       {showDropdown && (
         <div style={{
           position: "absolute", top: "100%", left: 0, right: 0, zIndex: 20,
-          marginTop: "0.25rem", background: "rgba(15,15,22,0.95)",
-          backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: "0.75rem", overflow: "hidden", maxHeight: "12rem", overflowY: "auto",
+          marginTop: "0.25rem", background: "rgba(255,255,255,0.97)",
+          border: "1px solid rgba(232,224,214,0.6)",
+          borderRadius: "0.75rem", overflow: "hidden", maxHeight: "16rem", overflowY: "auto",
         }}>
           {searching && results.length === 0 ? (
-            <div style={{ padding: "0.75rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.75rem" }}>
+            <div style={{ padding: "0.75rem", textAlign: "center", color: "rgba(107,100,90,0.6)", fontSize: "0.75rem" }}>
               Searching...
             </div>
           ) : (
@@ -1089,37 +1437,36 @@ function AutocompleteField({
                 key={r.entity_id}
                 onMouseDown={(e) => { e.preventDefault(); onSelect(r.name, r.properties?.image?.url); }}
                 style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: "0.6rem",
-                  padding: "0.6rem 0.75rem", background: "transparent", border: "none",
-                  borderBottom: "1px solid rgba(255,255,255,0.04)", color: "white",
+                  width: "100%", display: "flex", alignItems: "center", gap: "0.65rem",
+                  padding: "0.55rem 0.75rem", background: "transparent", border: "none",
+                  borderBottom: "1px solid rgba(232,224,214,0.4)", color: "#2D2A26",
                   cursor: "pointer", textAlign: "left", transition: "background 0.15s",
                 }}
-                onMouseOver={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+                onMouseOver={(e) => { e.currentTarget.style.background = "rgba(45,42,38,0.04)"; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
               >
                 {r.properties?.image?.url ? (
                   <img src={r.properties.image.url} alt="" style={{
-                    width: "2rem", height: "2rem", borderRadius: "0.375rem",
+                    width: imgW, height: imgH, borderRadius: imgRadius,
                     objectFit: "cover", flexShrink: 0,
                   }} />
                 ) : (
                   <div style={{
-                    width: "2rem", height: "2rem", borderRadius: "0.375rem",
-                    background: "rgba(255,255,255,0.05)", display: "flex",
-                    alignItems: "center", justifyContent: "center", fontSize: "0.8rem", flexShrink: 0,
-                  }}>🎵</div>
+                    width: imgW, height: imgH, borderRadius: imgRadius,
+                    background: "rgba(45,42,38,0.04)", display: "flex",
+                    alignItems: "center", justifyContent: "center", fontSize: "0.9rem", flexShrink: 0,
+                  }}>{fallbackEmoji}</div>
                 )}
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: "0.8rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: "0.85rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.name}
                   </div>
                   {r.properties?.short_description && (
-                    <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.25)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: "0.65rem", color: "rgba(107,100,90,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {r.properties.short_description}
                     </div>
                   )}
                 </div>
-                <span style={{ fontSize: "0.55rem", color: "rgba(249,115,22,0.5)", flexShrink: 0 }}>Qloo</span>
               </button>
             ))
           )}
@@ -1152,20 +1499,69 @@ function FoodAutocompleteField({
   style?: React.CSSProperties;
 }) {
   const [focused, setFocused] = useState(false);
-  const showDropdown = focused && value.length >= 2 && (results.length > 0 || searching);
+  const hasSelection = !!(value && selectedImage);
+  const q = value.toLowerCase().trim();
+
+  // Quick pick suggestions that match what the user is typing
+  const matchingSuggestions = q.length >= 1
+    ? FOOD_SUGGESTIONS.filter((s) => s.toLowerCase().includes(q) && s.toLowerCase() !== q)
+    : [];
+
+  // Synthesize a cuisine entry at the top if the typed text matches a cuisine flag
+  const typedFlag = q.length >= 2 ? getCuisineFlag(value) : null;
+
+  const showDropdown = focused && !hasSelection && value.length >= 2 && (
+    results.length > 0 || searching || matchingSuggestions.length > 0 || typedFlag
+  );
 
   return (
     <div style={{ marginBottom: "1rem", position: "relative", ...wrapperStyle }}>
-      <label style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
+      <label style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
         {label}
       </label>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        {selectedImage && (
+
+      {/* Selected state with flag/image */}
+      {hasSelection ? (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "0.75rem",
+          padding: "0.5rem 0.75rem", borderRadius: "0.75rem",
+          background: "rgba(140,191,212,0.08)", border: "1px solid rgba(140,191,212,0.2)",
+        }}>
           <img src={selectedImage} alt="" draggable={false} style={{
-            width: "2.25rem", height: "2.25rem", borderRadius: "0.5rem",
+            width: "2.5rem", height: "2.5rem", borderRadius: "0.5rem",
             objectFit: "cover", flexShrink: 0,
           }} />
-        )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#2D2A26", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {getCuisineFlag(value) ? `${getCuisineFlag(value)} ` : ""}{value}
+            </div>
+          </div>
+          <button
+            onClick={() => { onChange(""); onSelect("", undefined); }}
+            style={{ background: "none", border: "none", color: "rgba(107,100,90,0.6)", cursor: "pointer", fontSize: "1.1rem", padding: "0.2rem", lineHeight: 1 }}
+          >×</button>
+        </div>
+      ) : value && !selectedImage && getCuisineFlag(value) ? (
+        /* Selected without image — show flag badge */
+        <div style={{
+          display: "flex", alignItems: "center", gap: "0.75rem",
+          padding: "0.5rem 0.75rem", borderRadius: "0.75rem",
+          background: "rgba(140,191,212,0.08)", border: "1px solid rgba(140,191,212,0.2)",
+        }}>
+          <div style={{
+            width: "2.5rem", height: "2.5rem", borderRadius: "0.5rem",
+            background: "rgba(45,42,38,0.04)", display: "flex",
+            alignItems: "center", justifyContent: "center", fontSize: "1.4rem", flexShrink: 0,
+          }}>{getCuisineFlag(value)}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#2D2A26" }}>{value}</div>
+          </div>
+          <button
+            onClick={() => { onChange(""); onSelect("", undefined); }}
+            style={{ background: "none", border: "none", color: "rgba(107,100,90,0.6)", cursor: "pointer", fontSize: "1.1rem", padding: "0.2rem", lineHeight: 1 }}
+          >×</button>
+        </div>
+      ) : (
         <input
           type="text"
           value={value}
@@ -1175,60 +1571,128 @@ function FoodAutocompleteField({
           placeholder={placeholder}
           style={{
             width: "100%", padding: "0.65rem 1rem", borderRadius: "0.75rem",
-            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-            color: "white", fontSize: "0.85rem", outline: "none", fontFamily: "inherit",
+            background: "rgba(45,42,38,0.03)", border: "1px solid rgba(232,224,214,0.6)",
+            color: "#2D2A26", fontSize: "0.85rem", outline: "none", fontFamily: "inherit",
           }}
         />
-      </div>
-      {searching && (
-        <span style={{ position: "absolute", right: "0.75rem", top: "2.1rem", fontSize: "0.7rem", color: "rgba(255,255,255,0.2)" }}>...</span>
+      )}
+
+      {/* Quick pick chips when input is empty/focused */}
+      {focused && !value && !hasSelection && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.5rem" }}>
+          {FOOD_SUGGESTIONS.slice(0, 12).map((s) => {
+            const flag = getCuisineFlag(s);
+            return (
+              <button
+                key={s}
+                onMouseDown={(e) => { e.preventDefault(); onSelect(s, undefined); }}
+                style={{
+                  padding: "0.3rem 0.6rem", borderRadius: "9999px",
+                  background: "rgba(45,42,38,0.03)", border: "1px solid rgba(232,224,214,0.6)",
+                  color: "rgba(107,100,90,0.9)", fontSize: "0.75rem", cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = "rgba(140,191,212,0.1)"; e.currentTarget.style.borderColor = "rgba(140,191,212,0.3)"; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = "rgba(45,42,38,0.03)"; e.currentTarget.style.borderColor = "rgba(232,224,214,0.6)"; }}
+              >{flag ? `${flag} ` : ""}{s}</button>
+            );
+          })}
+        </div>
       )}
 
       {showDropdown && (
         <div style={{
           position: "absolute", top: "100%", left: 0, right: 0, zIndex: 20,
-          marginTop: "0.25rem", background: "rgba(15,15,22,0.95)",
-          backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: "0.75rem", overflow: "hidden", maxHeight: "12rem", overflowY: "auto",
+          marginTop: "0.25rem", background: "rgba(255,255,255,0.97)",
+          border: "1px solid rgba(232,224,214,0.6)",
+          borderRadius: "0.75rem", overflow: "hidden", maxHeight: "16rem", overflowY: "auto",
         }}>
-          {searching && results.length === 0 ? (
-            <div style={{ padding: "0.75rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.75rem" }}>
+          {/* Synthesized cuisine entry */}
+          {typedFlag && (
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                // Capitalize first letter
+                const name = value.charAt(0).toUpperCase() + value.slice(1);
+                onSelect(name, undefined);
+              }}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", gap: "0.65rem",
+                padding: "0.6rem 0.75rem", background: "rgba(140,191,212,0.06)", border: "none",
+                borderBottom: "1px solid rgba(232,224,214,0.5)", color: "#2D2A26",
+                cursor: "pointer", textAlign: "left",
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "rgba(140,191,212,0.12)"; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = "rgba(140,191,212,0.06)"; }}
+            >
+              <span style={{ fontSize: "1.4rem", width: "2rem", textAlign: "center", flexShrink: 0 }}>{typedFlag}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{value.charAt(0).toUpperCase() + value.slice(1)}</div>
+                <div style={{ fontSize: "0.6rem", color: "rgba(140,191,212,0.6)" }}>Cuisine type</div>
+              </div>
+            </button>
+          )}
+
+          {/* Matching quick picks */}
+          {matchingSuggestions.slice(0, 3).map((s) => {
+            const flag = getCuisineFlag(s);
+            return (
+              <button
+                key={`qp-${s}`}
+                onMouseDown={(e) => { e.preventDefault(); onSelect(s, undefined); }}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: "0.65rem",
+                  padding: "0.5rem 0.75rem", background: "transparent", border: "none",
+                  borderBottom: "1px solid rgba(232,224,214,0.4)", color: "#2D2A26",
+                  cursor: "pointer", textAlign: "left", transition: "background 0.15s",
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = "rgba(45,42,38,0.04)"; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
+              >
+                <span style={{ fontSize: "1.1rem", width: "2rem", textAlign: "center", flexShrink: 0 }}>{flag || "restaurant"}</span>
+                <div style={{ fontSize: "0.8rem", fontWeight: 500 }}>{s}</div>
+                <span style={{ fontSize: "0.55rem", color: "rgba(107,100,90,0.4)", marginLeft: "auto", flexShrink: 0 }}>Quick pick</span>
+              </button>
+            );
+          })}
+
+          {/* Qloo search results */}
+          {searching && results.length === 0 && !typedFlag && matchingSuggestions.length === 0 ? (
+            <div style={{ padding: "0.75rem", textAlign: "center", color: "rgba(107,100,90,0.6)", fontSize: "0.75rem" }}>
               Searching foods...
             </div>
           ) : (
-            results.map((r) => (
-              <button
-                key={r.id}
-                onMouseDown={(e) => { e.preventDefault(); onSelect(r.name, r.imageUrl); }}
-                style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: "0.6rem",
-                  padding: "0.6rem 0.75rem", background: "transparent", border: "none",
-                  borderBottom: "1px solid rgba(255,255,255,0.04)", color: "white",
-                  cursor: "pointer", textAlign: "left", transition: "background 0.15s",
-                }}
-                onMouseOver={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
-              >
-                {r.imageUrl ? (
-                  <img src={r.imageUrl} alt="" style={{
-                    width: "2rem", height: "2rem", borderRadius: "0.375rem",
-                    objectFit: "cover", flexShrink: 0,
-                  }} />
-                ) : (
-                  <div style={{
-                    width: "2rem", height: "2rem", borderRadius: "0.375rem",
-                    background: "rgba(255,255,255,0.05)", display: "flex",
-                    alignItems: "center", justifyContent: "center", fontSize: "0.8rem", flexShrink: 0,
-                  }}>🍽️</div>
-                )}
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: "0.8rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {r.name}
+            results.map((r) => {
+              const flag = getCuisineFlag(r.name);
+              return (
+                <button
+                  key={r.id}
+                  onMouseDown={(e) => { e.preventDefault(); onSelect(r.name, r.imageUrl); }}
+                  style={{
+                    width: "100%", display: "flex", alignItems: "center", gap: "0.65rem",
+                    padding: "0.55rem 0.75rem", background: "transparent", border: "none",
+                    borderBottom: "1px solid rgba(232,224,214,0.4)", color: "#2D2A26",
+                    cursor: "pointer", textAlign: "left", transition: "background 0.15s",
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = "rgba(45,42,38,0.04)"; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
+                >
+                  {r.imageUrl ? (
+                    <img src={r.imageUrl} alt="" style={{
+                      width: "2rem", height: "2rem", borderRadius: "0.375rem",
+                      objectFit: "cover", flexShrink: 0,
+                    }} />
+                  ) : (
+                    <span style={{ fontSize: "1.1rem", width: "2rem", textAlign: "center", flexShrink: 0 }}>{flag || "restaurant"}</span>
+                  )}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: "0.8rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {flag && !r.imageUrl ? `${flag} ` : ""}{r.name}
+                    </div>
                   </div>
-                </div>
-                <span style={{ fontSize: "0.55rem", color: "rgba(139,92,246,0.5)", flexShrink: 0 }}>Qloo</span>
-              </button>
-            ))
+                </button>
+              );
+            })
           )}
         </div>
       )}
@@ -1236,11 +1700,9 @@ function FoodAutocompleteField({
   );
 }
 
-// --- Music autocomplete field (single input, Qloo artists + albums) ---
-// Flow: user types → sees artists and albums from Qloo
-// Pick an artist → sets artist name + image, input clears for song title
-// Pick an album → sets song name + cover art
-// Result: "Artist — Song" with artwork, Spotify/YouTube links on profile
+// --- Music autocomplete field (iTunes song search) ---
+// Flow: user types → sees songs from iTunes with artist + artwork
+// Pick a song → auto-fills artist, track name, and cover art in one click
 function MusicAutocompleteField({
   value,
   artist,
@@ -1261,155 +1723,120 @@ function MusicAutocompleteField({
   selectedImage?: string;
 }) {
   const [focused, setFocused] = useState(false);
-  const showDropdown = focused && value.length >= 2 && (results.length > 0 || searching);
+  const hasSelection = !!(artist && value);
+  const showDropdown = focused && !hasSelection && value.length >= 2 && (results.length > 0 || searching);
 
   return (
     <div style={{ marginBottom: "1rem", position: "relative" }}>
-      <label style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
-        🎵 Song stuck in your head
+      <label style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "0.5rem" }}>
+        Song stuck in your head
       </label>
 
-      {/* Show selected artist badge above input */}
-      {artist && (
+      {/* Show selected song with artist + artwork */}
+      {hasSelection && (
         <div style={{
-          display: "inline-flex", alignItems: "center", gap: "0.35rem",
-          padding: "0.2rem 0.5rem 0.2rem 0.25rem", borderRadius: "9999px",
-          background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.25)",
-          fontSize: "0.7rem", color: "#f97316", marginBottom: "0.4rem",
+          display: "flex", alignItems: "center", gap: "0.75rem",
+          padding: "0.6rem 0.75rem", borderRadius: "0.75rem",
+          background: "rgba(232,120,138,0.08)", border: "1px solid rgba(232,120,138,0.2)",
         }}>
-          {selectedImage && (
+          {selectedImage ? (
             <img src={selectedImage} alt="" style={{
-              width: "1.1rem", height: "1.1rem", borderRadius: "50%", objectFit: "cover",
+              width: "3rem", height: "3rem", borderRadius: "0.5rem", objectFit: "cover", flexShrink: 0,
             }} />
+          ) : (
+            <div style={{
+              width: "3rem", height: "3rem", borderRadius: "0.5rem",
+              background: "rgba(232,120,138,0.15)", display: "flex",
+              alignItems: "center", justifyContent: "center", fontSize: "1.2rem", flexShrink: 0,
+            }}><IconMusic size={16} /></div>
           )}
-          {artist}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#2D2A26", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {value}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "rgba(232,120,138,0.8)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {artist}
+            </div>
+          </div>
           <button
-            onClick={() => onSelect("", "", "")}
-            style={{ background: "none", border: "none", color: "rgba(249,115,22,0.5)", cursor: "pointer", fontSize: "0.8rem", padding: "0 0.1rem", lineHeight: 1 }}
+            onClick={() => { onSelect("", "", ""); onChange(""); }}
+            style={{ background: "none", border: "none", color: "rgba(107,100,90,0.6)", cursor: "pointer", fontSize: "1.1rem", padding: "0.2rem", lineHeight: 1 }}
+            title="Remove"
           >×</button>
         </div>
       )}
 
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setTimeout(() => setFocused(false), 200)}
-        placeholder={artist ? "Now type the song name..." : placeholder}
-        style={{
-          width: "100%", padding: "0.65rem 1rem", borderRadius: "0.75rem",
-          background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-          color: "white", fontSize: "0.85rem", outline: "none", fontFamily: "inherit",
-        }}
-      />
+      {!hasSelection && (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setTimeout(() => setFocused(false), 200)}
+          placeholder={placeholder}
+          style={{
+            width: "100%", padding: "0.65rem 1rem", borderRadius: "0.75rem",
+            background: "rgba(45,42,38,0.03)", border: "1px solid rgba(232,224,214,0.6)",
+            color: "#2D2A26", fontSize: "0.85rem", outline: "none", fontFamily: "inherit",
+          }}
+        />
+      )}
 
       {showDropdown && (
         <div style={{
           position: "absolute", top: "100%", left: 0, right: 0, zIndex: 20,
-          marginTop: "0.25rem", background: "rgba(15,15,22,0.95)",
-          backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)",
+          marginTop: "0.25rem", background: "rgba(255,255,255,0.97)",
+          border: "1px solid rgba(232,224,214,0.6)",
           borderRadius: "0.75rem", overflow: "hidden", maxHeight: "16rem", overflowY: "auto",
         }}>
           {searching && results.length === 0 ? (
-            <div style={{ padding: "0.75rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.75rem" }}>
-              Searching...
+            <div style={{ padding: "0.75rem", textAlign: "center", color: "rgba(107,100,90,0.6)", fontSize: "0.75rem" }}>
+              Searching songs...
             </div>
           ) : (
-            <>
-              {/* Artist results */}
-              {results.filter((r) => r.type === "artist").length > 0 && (
-                <div style={{ padding: "0.4rem 0.75rem 0.2rem", fontSize: "0.6rem", color: "rgba(255,255,255,0.2)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  Artists
-                </div>
-              )}
-              {results.filter((r) => r.type === "artist").map((r, i) => (
-                <button
-                  key={`artist-${r.entityId}-${i}`}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    // Selecting artist: set artist name + image, clear song input for typing
-                    onSelect(r.artistName, "", r.artworkUrl);
-                  }}
-                  style={{
-                    width: "100%", display: "flex", alignItems: "center", gap: "0.6rem",
-                    padding: "0.5rem 0.75rem", background: "transparent", border: "none",
-                    borderBottom: "1px solid rgba(255,255,255,0.04)", color: "white",
-                    cursor: "pointer", textAlign: "left", transition: "background 0.15s",
-                  }}
-                  onMouseOver={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
-                >
-                  {r.artworkUrl ? (
-                    <img src={r.artworkUrl} alt="" style={{
-                      width: "2rem", height: "2rem", borderRadius: "50%",
-                      objectFit: "cover", flexShrink: 0,
-                    }} />
-                  ) : (
-                    <div style={{
-                      width: "2rem", height: "2rem", borderRadius: "50%",
-                      background: "rgba(249,115,22,0.15)", display: "flex",
-                      alignItems: "center", justifyContent: "center", fontSize: "0.8rem", flexShrink: 0,
-                    }}>🎤</div>
-                  )}
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: "0.8rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {r.artistName}
-                    </div>
-                    {r.description && (
-                      <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {r.description}
-                      </div>
-                    )}
+            results.map((r, i) => (
+              <button
+                key={`song-${r.entityId}-${i}`}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onSelect(r.artistName, r.trackName, r.artworkUrl);
+                }}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: "0.65rem",
+                  padding: "0.55rem 0.75rem", background: "transparent", border: "none",
+                  borderBottom: "1px solid rgba(232,224,214,0.4)", color: "#2D2A26",
+                  cursor: "pointer", textAlign: "left", transition: "background 0.15s",
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = "rgba(45,42,38,0.04)"; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
+              >
+                {r.artworkUrl ? (
+                  <img src={r.artworkUrl} alt="" style={{
+                    width: "2.5rem", height: "2.5rem", borderRadius: "0.375rem",
+                    objectFit: "cover", flexShrink: 0,
+                  }} />
+                ) : (
+                  <div style={{
+                    width: "2.5rem", height: "2.5rem", borderRadius: "0.375rem",
+                    background: "rgba(45,42,38,0.04)", display: "flex",
+                    alignItems: "center", justifyContent: "center", fontSize: "0.9rem", flexShrink: 0,
+                  }}><IconMusic size={16} /></div>
+                )}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: "0.85rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {r.trackName}
                   </div>
-                  <span style={{ fontSize: "0.55rem", color: "rgba(249,115,22,0.4)", flexShrink: 0 }}>Artist</span>
-                </button>
-              ))}
-
-              {/* Album/Song results */}
-              {results.filter((r) => r.type === "album").length > 0 && (
-                <div style={{ padding: "0.4rem 0.75rem 0.2rem", fontSize: "0.6rem", color: "rgba(255,255,255,0.2)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  Songs / Albums
-                </div>
-              )}
-              {results.filter((r) => r.type === "album").map((r, i) => (
-                <button
-                  key={`album-${r.entityId}-${i}`}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    // Selecting album: set song name + cover art, keep existing artist
-                    onSelect(artist, r.trackName, r.artworkUrl);
-                  }}
-                  style={{
-                    width: "100%", display: "flex", alignItems: "center", gap: "0.6rem",
-                    padding: "0.5rem 0.75rem", background: "transparent", border: "none",
-                    borderBottom: "1px solid rgba(255,255,255,0.04)", color: "white",
-                    cursor: "pointer", textAlign: "left", transition: "background 0.15s",
-                  }}
-                  onMouseOver={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
-                >
-                  {r.artworkUrl ? (
-                    <img src={r.artworkUrl} alt="" style={{
-                      width: "2rem", height: "2rem", borderRadius: "0.375rem",
-                      objectFit: "cover", flexShrink: 0,
-                    }} />
-                  ) : (
-                    <div style={{
-                      width: "2rem", height: "2rem", borderRadius: "0.375rem",
-                      background: "rgba(255,255,255,0.05)", display: "flex",
-                      alignItems: "center", justifyContent: "center", fontSize: "0.8rem", flexShrink: 0,
-                    }}>💿</div>
-                  )}
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: "0.8rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {r.trackName}
-                    </div>
+                  <div style={{ fontSize: "0.7rem", color: "rgba(232,120,138,0.7)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {r.artistName}
                   </div>
-                  <span style={{ fontSize: "0.55rem", color: "rgba(139,92,246,0.4)", flexShrink: 0 }}>Song</span>
-                </button>
-              ))}
-            </>
+                  {r.description && (
+                    <div style={{ fontSize: "0.6rem", color: "rgba(107,100,90,0.4)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.description}
+                    </div>
+                  )}
+                </div>
+              </button>
+            ))
           )}
         </div>
       )}

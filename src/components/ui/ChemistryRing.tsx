@@ -23,10 +23,10 @@ export function ChemistryRing({
   const offset = circumference - (score / 100) * circumference;
 
   const getColor = (s: number) => {
-    if (s >= 85) return { from: "#f97316", to: "#ec4899" };
-    if (s >= 65) return { from: "#8b5cf6", to: "#06b6d4" };
-    if (s >= 45) return { from: "#06b6d4", to: "#84cc16" };
-    return { from: "#52525b", to: "#71717a" };
+    if (s >= 85) return { from: "#E8788A", to: "#B8A0D2" };
+    if (s >= 65) return { from: "#8CBFD4", to: "#8AC4A0" };
+    if (s >= 45) return { from: "#8AC4A0", to: "#E8B88A" };
+    return { from: "#9E9689", to: "#B5AFA6" };
   };
 
   const getVibeLabel = (s: number) => {
@@ -57,7 +57,7 @@ export function ChemistryRing({
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="rgba(45,42,38,0.06)"
             strokeWidth={strokeWidth}
           />
 
@@ -91,12 +91,12 @@ export function ChemistryRing({
       </div>
 
       {label && (
-        <span className="text-sm font-medium text-white/80">{label}</span>
+        <span className="text-sm font-medium text-text-primary">{label}</span>
       )}
       {sublabel ? (
-        <span className="text-xs text-white/40">{sublabel}</span>
+        <span className="text-xs text-text-muted">{sublabel}</span>
       ) : (
-        <span className="text-xs text-white/40">{getVibeLabel(score)}</span>
+        <span className="text-xs text-text-muted">{getVibeLabel(score)}</span>
       )}
     </div>
   );

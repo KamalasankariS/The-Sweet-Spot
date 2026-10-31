@@ -31,7 +31,7 @@ export function useQlooSearch(entityType?: string) {
         } finally {
           setLoading(false);
         }
-      }, 300);
+      }, 150);
     },
     [entityType]
   );

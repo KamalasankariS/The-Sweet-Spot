@@ -54,12 +54,12 @@ export function CulturalDNACard({
         style={{
           padding: "2px",
           borderRadius: "1.5rem",
-          background: "linear-gradient(135deg, #f97316, #ec4899, #8b5cf6, #06b6d4)",
+          background: "linear-gradient(135deg, #E8788A, #B8A0D2, #8CBFD4, #8AC4A0)",
         }}
       >
         <div
           style={{
-            background: "linear-gradient(160deg, #12121a 0%, #0a0a0f 100%)",
+            background: "linear-gradient(160deg, #FFFFFF 0%, #FAF5F0 100%)",
             borderRadius: "calc(1.5rem - 2px)",
             padding: "2rem",
             position: "relative",
@@ -74,7 +74,7 @@ export function CulturalDNACard({
               right: "-2rem",
               width: "10rem",
               height: "10rem",
-              background: "radial-gradient(circle, rgba(236,72,153,0.15) 0%, transparent 70%)",
+              background: "radial-gradient(circle, rgba(184,160,210,0.15) 0%, transparent 70%)",
               borderRadius: "50%",
               pointerEvents: "none",
             }}
@@ -86,7 +86,7 @@ export function CulturalDNACard({
               left: "-2rem",
               width: "8rem",
               height: "8rem",
-              background: "radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)",
+              background: "radial-gradient(circle, rgba(140,191,212,0.12) 0%, transparent 70%)",
               borderRadius: "50%",
               pointerEvents: "none",
             }}
@@ -95,7 +95,7 @@ export function CulturalDNACard({
           {/* Header */}
           <div style={{ position: "relative", marginBottom: "1.25rem" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-              <span style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.2em" }}>
+              <span style={{ fontSize: "0.6rem", color: "rgba(45,42,38,0.35)", textTransform: "uppercase", letterSpacing: "0.2em" }}>
                 Cultural DNA
               </span>
               <span className="gradient-text" style={{ fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.1em" }}>
@@ -114,29 +114,29 @@ export function CulturalDNACard({
               marginBottom: "1.5rem",
               padding: "1rem 1.25rem",
               borderRadius: "1rem",
-              background: "linear-gradient(135deg, rgba(249,115,22,0.08) 0%, rgba(139,92,246,0.08) 100%)",
-              border: "1px solid rgba(255,255,255,0.05)",
+              background: "linear-gradient(135deg, rgba(232,120,138,0.08) 0%, rgba(140,191,212,0.08) 100%)",
+              border: "1px solid rgba(232,224,214,0.4)",
             }}
           >
-            <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "0.35rem" }}>
+            <div style={{ fontSize: "0.6rem", color: "rgba(45,42,38,0.35)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "0.35rem" }}>
               Your Archetype
             </div>
             <div className="gradient-text" style={{ fontSize: "1.2rem", fontWeight: 700, marginBottom: "0.2rem" }}>
               {archetypeEmoji && <span style={{ marginRight: "0.4rem" }}>{archetypeEmoji}</span>}
               {archetype}
             </div>
-            <div style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", fontStyle: "italic" }}>
+            <div style={{ fontSize: "0.8rem", color: "rgba(45,42,38,0.5)", fontStyle: "italic" }}>
               {archetypeTagline}
             </div>
           </motion.div>
 
           {/* Taste Dimensions */}
           <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", position: "relative", marginBottom: "1.25rem" }}>
-            <TasteRow emoji="🎵" label="Music" value={categoryInsights.music.label} color={categoryInsights.music.color} delay={0.35} />
-            <TasteRow emoji="🎬" label="Film" value={categoryInsights.film.label} color={categoryInsights.film.color} delay={0.4} />
-            <TasteRow emoji="🍽" label="Dining" value={categoryInsights.dining.label} color={categoryInsights.dining.color} delay={0.45} />
-            <TasteRow emoji="🌙" label="Nightlife" value={categoryInsights.nightlife.label} color={categoryInsights.nightlife.color} delay={0.5} />
-            <TasteRow emoji="✨" label="Style" value={categoryInsights.style.label} color={categoryInsights.style.color} delay={0.55} />
+            <TasteRow emoji="music" label="Music" value={categoryInsights.music.label} color={categoryInsights.music.color} delay={0.35} />
+            <TasteRow emoji="theater" label="Film" value={categoryInsights.film.label} color={categoryInsights.film.color} delay={0.4} />
+            <TasteRow emoji="restaurant" label="Dining" value={categoryInsights.dining.label} color={categoryInsights.dining.color} delay={0.45} />
+            <TasteRow emoji="crystal" label="Nightlife" value={categoryInsights.nightlife.label} color={categoryInsights.nightlife.color} delay={0.5} />
+            <TasteRow emoji="sparkle" label="Style" value={categoryInsights.style.label} color={categoryInsights.style.color} delay={0.55} />
           </div>
 
           {/* Personality Traits */}
@@ -146,16 +146,16 @@ export function CulturalDNACard({
             transition={{ delay: 0.6 }}
             style={{ marginBottom: "1.25rem" }}
           >
-            <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "0.6rem" }}>
+            <div style={{ fontSize: "0.6rem", color: "rgba(45,42,38,0.25)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "0.6rem" }}>
               Top Traits
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               {topTraits.map((t, i) => (
                 <div key={t.trait} style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                  <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)", width: "5.5rem", flexShrink: 0 }}>
+                  <span style={{ fontSize: "0.75rem", color: "rgba(45,42,38,0.5)", width: "5.5rem", flexShrink: 0 }}>
                     {t.trait}
                   </span>
-                  <div style={{ flex: 1, height: "4px", borderRadius: "2px", background: "rgba(255,255,255,0.06)" }}>
+                  <div style={{ flex: 1, height: "4px", borderRadius: "2px", background: "rgba(45,42,38,0.06)" }}>
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.max(10, (t.value / maxTrait) * 100)}%` }}
@@ -163,7 +163,7 @@ export function CulturalDNACard({
                       style={{
                         height: "100%",
                         borderRadius: "2px",
-                        background: `linear-gradient(90deg, ${["#f97316", "#ec4899", "#8b5cf6"][i] || "#06b6d4"}, ${["#ec4899", "#8b5cf6", "#06b6d4"][i] || "#84cc16"})`,
+                        background: `linear-gradient(90deg, ${["#E8788A", "#B8A0D2", "#8CBFD4"][i] || "#8AC4A0"}, ${["#B8A0D2", "#8CBFD4", "#8AC4A0"][i] || "#E8B88A"})`,
                       }}
                     />
                   </div>
@@ -180,12 +180,12 @@ export function CulturalDNACard({
             style={{
               padding: "0.75rem 1rem",
               borderRadius: "0.75rem",
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.04)",
+              background: "rgba(45,42,38,0.02)",
+              border: "1px solid rgba(232,224,214,0.4)",
               marginBottom: "1.25rem",
             }}
           >
-            <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.4)", lineHeight: 1.5, fontStyle: "italic" }}>
+            <p style={{ fontSize: "0.78rem", color: "rgba(45,42,38,0.5)", lineHeight: 1.5, fontStyle: "italic" }}>
               &ldquo;{archetypeDescription}&rdquo;
             </p>
           </motion.div>
@@ -197,11 +197,11 @@ export function CulturalDNACard({
             transition={{ delay: 1 }}
             style={{
               paddingTop: "1rem",
-              borderTop: "1px solid rgba(255,255,255,0.06)",
+              borderTop: "1px solid rgba(232,224,214,0.5)",
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "0.4rem" }}>
+            <div style={{ fontSize: "0.6rem", color: "rgba(45,42,38,0.25)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "0.4rem" }}>
               Your Vibe in One Line
             </div>
             <div
@@ -239,7 +239,7 @@ function TasteRow({
     >
       <span style={{ fontSize: "1.1rem", width: "1.5rem", textAlign: "center" }}>{emoji}</span>
       <div>
-        <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+        <div style={{ fontSize: "0.6rem", color: "rgba(45,42,38,0.35)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
           {label}
         </div>
         <div style={{ fontSize: "0.85rem", fontWeight: 500, color }}>

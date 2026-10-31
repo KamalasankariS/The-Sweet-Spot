@@ -35,7 +35,7 @@ export async function nativeShare(data: ShareData): Promise<"shared" | "copied" 
 export function shareItinerary(groupName: string, url: string) {
   return nativeShare({
     title: `${groupName} — The Sweet Spot`,
-    text: `Check out our group's perfect night plan on The Sweet Spot! 🌙✨`,
+    text: `Check out our group's perfect night plan on The Sweet Spot!`,
     url,
   });
 }
@@ -43,7 +43,7 @@ export function shareItinerary(groupName: string, url: string) {
 export function shareDNACard(name: string, url: string) {
   return nativeShare({
     title: `${name}'s Cultural DNA — The Sweet Spot`,
-    text: `Check out my Cultural DNA card on The Sweet Spot! 🧬`,
+    text: `Check out my Cultural DNA card on The Sweet Spot!`,
     url,
   });
 }
@@ -51,7 +51,7 @@ export function shareDNACard(name: string, url: string) {
 export function shareGroupInvite(groupName: string, url: string) {
   return nativeShare({
     title: `Join ${groupName} on The Sweet Spot`,
-    text: `Join our group on The Sweet Spot and let's find the perfect night out together! 🎯`,
+    text: `Join our group on The Sweet Spot and let's find the perfect night out together!`,
     url,
   });
 }

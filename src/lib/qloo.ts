@@ -44,6 +44,31 @@ async function qlooGet<T>(
   return res.json() as Promise<T>;
 }
 
+// --- Geocode helper (Photon / OSM) ---
+
+const geoCache = new Map<string, { lat: number; lon: number } | null>();
+
+export async function geocode(
+  locationQuery: string
+): Promise<{ lat: number; lon: number } | null> {
+  const key = locationQuery.toLowerCase().trim();
+  if (geoCache.has(key)) return geoCache.get(key)!;
+
+  try {
+    const params = new URLSearchParams({ q: locationQuery, limit: "1" });
+    const res = await fetch(`https://photon.komoot.io/api/?${params}`);
+    const data = await res.json();
+    const coords = data.features?.[0]?.geometry?.coordinates;
+    if (coords && coords.length >= 2) {
+      const result = { lat: coords[1], lon: coords[0] };
+      geoCache.set(key, result);
+      return result;
+    }
+  } catch {}
+  geoCache.set(key, null);
+  return null;
+}
+
 // --- Endpoint 1: Search ---
 
 export async function searchEntities(
@@ -53,11 +78,18 @@ export async function searchEntities(
   location?: string,
   radius?: number
 ): Promise<QlooEntity[]> {
+  // Geocode text location to lat,lon for Qloo's filter.location
+  let latlon: string | undefined;
+  if (location) {
+    const coords = await geocode(location);
+    if (coords) latlon = `${coords.lat},${coords.lon}`;
+  }
+
   const data = await qlooGet<QlooSearchResponse>("/search", {
     query,
     types,
     take,
-    "filter.location": location,
+    "filter.location": latlon,
     "filter.radius": radius,
   });
   return data.results || [];
@@ -90,6 +122,9 @@ export interface InsightsParams {
   signalGender?: string;
   signalLocationQuery?: string;
   filterLocationQuery?: string;
+  filterLocationLat?: number;
+  filterLocationLon?: number;
+  filterLocationRadius?: number; // in miles
   filterTags?: string;
   filterTagsOperator?: "union" | "intersection";
   filterPopularityMin?: number;
@@ -112,6 +147,9 @@ export async function getInsights(
     "signal.demographics.gender": params.signalGender,
     "signal.location.query": params.signalLocationQuery,
     "filter.location.query": params.filterLocationQuery,
+    "filter.location.geo.lat": params.filterLocationLat,
+    "filter.location.geo.lon": params.filterLocationLon,
+    "filter.location.geo.radius": params.filterLocationRadius,
     "filter.tags": params.filterTags,
     "operator.filter.tags": params.filterTagsOperator,
     "filter.popularity.min": params.filterPopularityMin,

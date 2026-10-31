@@ -1,5 +1,7 @@
 "use client";
 
+import { IconTarget } from "@/components/icons/SweetSpotIcons";
+
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
@@ -97,11 +99,11 @@ export default function DNAPage() {
           }}
         >
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🧬</div>
+            <div style={{ marginBottom: "1rem" }}><IconTarget size={40} /></div>
             <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.75rem" }}>
               No Taste Profile Yet
             </h2>
-            <p style={{ color: "rgba(255,255,255,0.4)", marginBottom: "1.5rem" }}>
+            <p style={{ color: "rgba(107,100,90,0.8)", marginBottom: "1.5rem" }}>
               Take the quiz to generate your Cultural DNA card.
             </p>
             <a href="/quiz">
@@ -133,12 +135,11 @@ export default function DNAPage() {
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
             style={{ fontSize: "3rem" }}
           >
-            🧬
           </motion.div>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.95rem" }}
+            style={{ color: "rgba(45,42,38,0.5)", fontSize: "0.95rem" }}
           >
             Analyzing your cultural DNA...
           </motion.p>
@@ -173,7 +174,7 @@ export default function DNAPage() {
           <h1 style={{ fontSize: "2rem", fontWeight: 700, marginBottom: "0.5rem" }}>
             Your <span className="gradient-text">Cultural DNA</span>
           </h1>
-          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.95rem" }}>
+          <p style={{ color: "rgba(107,100,90,0.8)", fontSize: "0.95rem" }}>
             Your taste tells a story — here&apos;s yours
           </p>
         </motion.div>
@@ -193,7 +194,7 @@ export default function DNAPage() {
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.8rem" }}
+            style={{ color: "rgba(45,42,38,0.35)", fontSize: "0.8rem" }}
           >
             Regenerating...
           </motion.p>
@@ -233,7 +234,7 @@ export default function DNAPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.5 }}
-            style={{ color: "rgba(255,255,255,0.15)", fontSize: "0.7rem" }}
+            style={{ color: "rgba(45,42,38,0.15)", fontSize: "0.7rem" }}
           >
             Powered by AI — same taste, fresh perspective each time
           </motion.p>

@@ -1,7 +1,10 @@
 "use client";
 
+import { Icon } from "@/components/icons/SweetSpotIcons";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useCallback, useRef, useEffect } from "react";
+import { getCuisineFlag } from "@/lib/cuisineFlags";
 
 interface QlooResult {
   name: string;
@@ -20,10 +23,12 @@ interface QuizStepProps {
   placeholder: string;
   color: string;
   suggestions: string[];
-  entityType?: string; // Qloo entity type for live search
+  entityType?: string;
+  searchContext?: string;
   onAddSelection: (item: string, entityId?: string, imageUrl?: string) => void;
   onRemoveSelection: (item: string) => void;
   selections: string[];
+  selectionImages?: Record<string, string>;
   maxSelections?: number;
 }
 
@@ -35,9 +40,11 @@ export function QuizStep({
   color,
   suggestions,
   entityType,
+  searchContext,
   onAddSelection,
   onRemoveSelection,
   selections,
+  selectionImages = {},
   maxSelections = 5,
 }: QuizStepProps) {
   const [inputValue, setInputValue] = useState("");
@@ -46,6 +53,7 @@ export function QuizStep({
   const [searching, setSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
+  const clientCache = useRef<Map<string, QlooResult[]>>(new Map());
 
   // Live Qloo search
   useEffect(() => {
@@ -56,38 +64,38 @@ export function QuizStep({
       return;
     }
 
+    const cacheKey = `${inputValue.toLowerCase().trim()}|${entityType || ""}|${searchContext || ""}`;
+
+    const cached = clientCache.current.get(cacheKey);
+    if (cached) {
+      setQlooResults(cached.filter((r: QlooResult) => !selections.includes(r.name)));
+      return;
+    }
+
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
       try {
-        const params = new URLSearchParams({ q: inputValue, take: "6" });
+        const searchQuery = searchContext && inputValue.trim().length <= 4
+          ? `${inputValue} ${searchContext}`
+          : inputValue;
+        const params = new URLSearchParams({ q: searchQuery, take: "6" });
         if (entityType) params.set("types", entityType);
         const res = await fetch(`/api/qloo/search?${params}`);
         const data = await res.json();
-        const query = inputValue.toLowerCase().trim();
-        const results = (data.results || [])
-          .filter((r: QlooResult) => !selections.includes(r.name))
-          .sort((a: QlooResult, b: QlooResult) => {
-            const aName = a.name.toLowerCase();
-            const bName = b.name.toLowerCase();
-            // Exact match first
-            const aExact = aName === query ? 0 : 1;
-            const bExact = bName === query ? 0 : 1;
-            if (aExact !== bExact) return aExact - bExact;
-            // Solo artist (shorter name, no "&", ",", "x", "feat") ranks higher
-            const collab = /[&,]| x | feat/i;
-            const aCollab = collab.test(a.name) ? 1 : 0;
-            const bCollab = collab.test(b.name) ? 1 : 0;
-            if (aCollab !== bCollab) return aCollab - bCollab;
-            // Closer name length to query = better match
-            return aName.length - bName.length;
-          });
+        const allResults = data.results || [];
+        clientCache.current.set(cacheKey, allResults);
+        if (clientCache.current.size > 100) {
+          const oldest = clientCache.current.keys().next().value;
+          if (oldest) clientCache.current.delete(oldest);
+        }
+        const results = allResults.filter((r: QlooResult) => !selections.includes(r.name));
         setQlooResults(results);
       } catch {
         setQlooResults([]);
       } finally {
         setSearching(false);
       }
-    }, 300);
+    }, 50);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -107,8 +115,9 @@ export function QuizStep({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && inputValue.trim()) {
-      // If there's a top Qloo result, use it
-      if (qlooResults.length > 0) {
+      if (matchingSuggestions.length > 0) {
+        handleAdd(matchingSuggestions[0]);
+      } else if (qlooResults.length > 0) {
         handleAdd(qlooResults[0].name, qlooResults[0].entity_id, qlooResults[0].properties?.image?.url);
       } else {
         handleAdd(inputValue.trim());
@@ -122,7 +131,19 @@ export function QuizStep({
       (inputValue === "" || s.toLowerCase().includes(inputValue.toLowerCase()))
   );
 
-  const showQlooDropdown = inputValue.length >= 2 && (qlooResults.length > 0 || searching);
+  const isFoodSearch = searchContext?.includes("food");
+  const matchingSuggestions = inputValue.length >= 1 ? filteredSuggestions.slice(0, 3) : [];
+  const showQlooDropdown = inputValue.length >= 2 && (qlooResults.length > 0 || searching || matchingSuggestions.length > 0 || (isFoodSearch && inputValue.trim().length >= 2));
+  const cuisineEntry: QlooResult | null = (isFoodSearch && inputValue.trim().length >= 2 && !selections.includes(inputValue.trim()))
+    ? {
+        name: inputValue.trim(),
+        entity_id: `cuisine-${inputValue.trim().toLowerCase()}`,
+        types: [],
+        properties: undefined,
+      }
+    : null;
+
+  const cuisineFlag = cuisineEntry ? getCuisineFlag(cuisineEntry.name) : null;
 
   return (
     <motion.div
@@ -140,41 +161,63 @@ export function QuizStep({
           transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
           className="text-5xl mb-4"
         >
-          {icon}
+          <Icon name={icon} size={20} />
         </motion.div>
         <h2 className="text-2xl font-bold mb-2">{category}</h2>
-        <p className="text-white/40">{prompt}</p>
+        <p className="text-text-secondary">{prompt}</p>
       </div>
 
       {/* Selected items */}
       <div className="flex flex-wrap gap-2 mb-6 min-h-[40px] justify-center">
         <AnimatePresence mode="popLayout">
-          {selections.map((item) => (
-            <motion.button
-              key={item}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              layout
-              onClick={() => onRemoveSelection(item)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all hover:bg-white/10 cursor-pointer"
-              style={{
-                borderColor: `${color}40`,
-                backgroundColor: `${color}15`,
-                color: color,
-              }}
-            >
-              {item}
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path
-                  d="M4 4l6 6m0-6l-6 6"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </motion.button>
-          ))}
+          {selections.map((item) => {
+            const imgUrl = selectionImages[item];
+            const flag = isFoodSearch ? getCuisineFlag(item) : null;
+            const hasVisual = imgUrl || flag;
+            return (
+              <motion.button
+                key={item}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                layout
+                onClick={() => onRemoveSelection(item)}
+                className="flex items-center gap-2 rounded-full border text-sm font-medium transition-all hover:bg-accent-rose/10 cursor-pointer"
+                style={{
+                  borderColor: `${color}40`,
+                  backgroundColor: `${color}15`,
+                  color: color,
+                  padding: hasVisual ? "0.25rem 0.75rem 0.25rem 0.25rem" : "0.5rem 1rem",
+                }}
+              >
+                {flag && !imgUrl && (
+                  <span style={{ fontSize: "1.2rem", lineHeight: 1 }}>{flag}</span>
+                )}
+                {imgUrl && (
+                  <img
+                    src={imgUrl}
+                    alt=""
+                    style={{
+                      width: "1.75rem",
+                      height: "1.75rem",
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+                {item}
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+                  <path
+                    d="M4 4l6 6m0-6l-6 6"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </motion.button>
+            );
+          })}
         </AnimatePresence>
       </div>
 
@@ -190,16 +233,16 @@ export function QuizStep({
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full px-6 py-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] text-white placeholder-white/20 outline-none focus:border-white/20 transition-colors text-center"
+          className="w-full px-6 py-4 rounded-2xl bg-white border border-border-light text-text-primary placeholder-text-muted outline-none focus:border-accent-rose/40 transition-colors text-center"
           disabled={selections.length >= maxSelections}
         />
         {selections.length < maxSelections && (
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/20">
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-text-muted">
             {selections.length}/{maxSelections}
           </span>
         )}
         {searching && (
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-white/30">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-text-muted">
             ...
           </span>
         )}
@@ -213,23 +256,113 @@ export function QuizStep({
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.15 }}
               style={{
-                position: "absolute",
-                top: "calc(100% + 0.5rem)",
-                left: 0,
-                right: 0,
-                zIndex: 20,
-                background: "rgba(15, 15, 22, 0.95)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                marginTop: "0.5rem",
+                background: "rgb(255, 255, 255)",
+                border: "1px solid rgba(232,224,214,0.6)",
                 borderRadius: "1rem",
                 overflow: "hidden",
-                maxHeight: "16rem",
+                maxHeight: "14rem",
                 overflowY: "auto",
+                boxShadow: "0 4px 16px rgba(45,42,38,0.08)",
               }}
             >
+              {/* Matching quick picks shown inside dropdown */}
+              {inputValue.length >= 1 && filteredSuggestions.length > 0 && (
+                <>
+                  {filteredSuggestions.slice(0, 3).map((sug) => (
+                    <button
+                      key={`sug-${sug}`}
+                      onClick={() => handleAdd(sug)}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        padding: "0.6rem 1rem",
+                        background: `${color}06`,
+                        border: "none",
+                        borderBottom: "1px solid rgba(232,224,214,0.4)",
+                        color: "#2D2A26",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = `${color}12`; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = `${color}06`; }}
+                    >
+                      <div style={{
+                        width: "2rem", height: "2rem", borderRadius: "0.5rem",
+                        background: `${color}20`, display: "flex", alignItems: "center",
+                        justifyContent: "center", fontSize: "0.85rem", flexShrink: 0,
+                      }}>
+                        <Icon name={icon} size={20} />
+                      </div>
+                      <div style={{ flex: 1, fontSize: "0.85rem", fontWeight: 500 }}>
+                        {sug}
+                      </div>
+                      <div style={{ fontSize: "0.55rem", color: `${color}90`, flexShrink: 0 }}>
+                        Quick pick
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {/* Cuisine type entry for food searches */}
+              {cuisineEntry && !searching && (
+                <button
+                  onClick={() => handleAdd(cuisineEntry.name)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    padding: "0.75rem 1rem",
+                    background: `${color}08`,
+                    border: "none",
+                    borderBottom: `1px solid ${color}20`,
+                    color: "#2D2A26",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = `${color}15`; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = `${color}08`; }}
+                >
+                  <div
+                    style={{
+                      width: "2.5rem",
+                      height: "2.5rem",
+                      borderRadius: "0.5rem",
+                      background: `${color}25`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: cuisineFlag ? "1.4rem" : "1.1rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {cuisineFlag || icon}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                      {cuisineFlag && <span style={{ marginRight: "0.35rem" }}>{cuisineFlag}</span>}
+                      {cuisineEntry.name}
+                    </div>
+                    <div style={{ fontSize: "0.7rem", color: `${color}99` }}>
+                      Cuisine type
+                    </div>
+                  </div>
+                  <div style={{ fontSize: "0.6rem", color: `${color}80`, flexShrink: 0, fontWeight: 500 }}>
+                    Cuisine
+                  </div>
+                </button>
+              )}
+
               {searching && qlooResults.length === 0 ? (
-                <div style={{ padding: "1rem", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: "0.8rem" }}>
-                  Searching Qloo...
+                <div style={{ padding: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", color: "rgba(45,42,38,0.35)", fontSize: "0.8rem" }}>
+                  <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: "0.7rem" }}>&#9676;</span>
+                  Finding matches...
                 </div>
               ) : (
                 qlooResults.map((result) => (
@@ -244,13 +377,13 @@ export function QuizStep({
                       padding: "0.75rem 1rem",
                       background: "transparent",
                       border: "none",
-                      borderBottom: "1px solid rgba(255,255,255,0.04)",
-                      color: "white",
+                      borderBottom: "1px solid rgba(232,224,214,0.3)",
+                      color: "#2D2A26",
                       cursor: "pointer",
                       textAlign: "left",
                       transition: "background 0.15s",
                     }}
-                    onMouseOver={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+                    onMouseOver={(e) => { e.currentTarget.style.background = "rgba(45,42,38,0.03)"; }}
                     onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
                   >
                     {/* Entity image */}
@@ -280,7 +413,7 @@ export function QuizStep({
                           flexShrink: 0,
                         }}
                       >
-                        {icon}
+                        <Icon name={icon} size={20} />
                       </div>
                     )}
                     <div style={{ minWidth: 0, flex: 1 }}>
@@ -288,7 +421,7 @@ export function QuizStep({
                         {result.name}
                       </div>
                       {result.properties?.short_description && (
-                        <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: "0.7rem", color: "rgba(45,42,38,0.35)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {result.properties.short_description}
                         </div>
                       )}
@@ -311,7 +444,7 @@ export function QuizStep({
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-wrap gap-2 justify-center"
         >
-          <span className="w-full text-center text-xs text-white/20 mb-2">
+          <span className="w-full text-center text-xs text-text-muted mb-2">
             Quick picks
           </span>
           {filteredSuggestions.slice(0, 8).map((suggestion) => (
@@ -320,7 +453,7 @@ export function QuizStep({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleAdd(suggestion)}
-              className="px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.06] text-sm text-white/50 hover:text-white hover:border-white/15 hover:bg-white/[0.08] transition-all cursor-pointer"
+              className="px-4 py-2 rounded-full bg-text-primary/[0.04] border border-border-light text-sm text-text-secondary hover:text-text-primary hover:border-accent-rose/30 hover:bg-accent-rose/5 transition-all cursor-pointer"
             >
               {suggestion}
             </motion.button>

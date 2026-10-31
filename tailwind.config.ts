@@ -10,18 +10,27 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        dark: {
-          900: "#0a0a0f",
-          800: "#12121a",
-          700: "#1a1a2e",
-          600: "#22223a",
+        surface: "#FAF5F0",
+        "surface-card": "#FFFFFF",
+        "surface-hover": "#F5EDE4",
+        "text-primary": "#2D2A26",
+        "text-secondary": "#6B645A",
+        "text-muted": "#9E9689",
+        "border-light": "#E8E0D6",
+        pastel: {
+          cotton: "#FBE4E4",
+          lavender: "#E4D4F2",
+          sky: "#D4EDF2",
+          peach: "#F2E4D4",
+          mint: "#E4F2E0",
+          bubblegum: "#F2D4E8",
         },
         accent: {
-          orange: "#f97316",
-          pink: "#ec4899",
-          purple: "#8b5cf6",
-          cyan: "#06b6d4",
-          lime: "#84cc16",
+          rose: "#E8788A",
+          lavender: "#B8A0D2",
+          sky: "#8CBFD4",
+          peach: "#E8B88A",
+          mint: "#8AC4A0",
         },
       },
       fontFamily: {

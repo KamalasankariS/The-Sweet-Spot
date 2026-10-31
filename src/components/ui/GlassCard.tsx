@@ -6,23 +6,24 @@ import { ReactNode } from "react";
 interface GlassCardProps extends Omit<HTMLMotionProps<"div">, "children"> {
   children: ReactNode;
   hover?: boolean;
-  glow?: "orange" | "pink" | "purple" | "cyan" | "none";
+  glow?: "rose" | "lavender" | "sky" | "peach" | "mint" | "none";
   className?: string;
   delay?: number;
 }
 
 const glowColors = {
-  orange: "hover:shadow-[0_0_40px_rgba(249,115,22,0.15)]",
-  pink: "hover:shadow-[0_0_40px_rgba(236,72,153,0.15)]",
-  purple: "hover:shadow-[0_0_40px_rgba(139,92,246,0.15)]",
-  cyan: "hover:shadow-[0_0_40px_rgba(6,182,212,0.15)]",
+  rose: "hover:shadow-[0_4px_24px_rgba(232,120,138,0.12)]",
+  lavender: "hover:shadow-[0_4px_24px_rgba(184,160,210,0.12)]",
+  sky: "hover:shadow-[0_4px_24px_rgba(140,191,212,0.12)]",
+  peach: "hover:shadow-[0_4px_24px_rgba(232,184,138,0.12)]",
+  mint: "hover:shadow-[0_4px_24px_rgba(138,196,160,0.12)]",
   none: "",
 };
 
 export function GlassCard({
   children,
   hover = true,
-  glow = "purple",
+  glow = "lavender",
   className = "",
   delay = 0,
   ...motionProps
@@ -45,11 +46,11 @@ export function GlassCard({
           : {}
       }
       className={`
-        bg-white/[0.04] backdrop-blur-xl
-        border border-white/[0.08]
-        rounded-2xl
+        bg-white/80 backdrop-blur-xl
+        border border-border-light
+        rounded-2xl shadow-[0_2px_12px_rgba(45,42,38,0.06)]
         transition-colors duration-300
-        ${hover ? "hover:bg-white/[0.07] hover:border-white/[0.14]" : ""}
+        ${hover ? "hover:bg-white/95 hover:border-border-light" : ""}
         ${glowColors[glow]}
         ${className}
       `}

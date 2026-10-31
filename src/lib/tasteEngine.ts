@@ -117,6 +117,31 @@ const STYLE_SIGNALS: Record<string, Partial<PersonalityScores>> = {
 
 const SIGNAL_MAPS = [MUSIC_SIGNALS, MOVIES_SIGNALS, DINING_SIGNALS, NIGHTLIFE_SIGNALS, STYLE_SIGNALS];
 
+// --- Hash-based scoring for unknown selections ---
+// Ensures custom-typed entries still produce unique personality signals
+
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function syntheticSignal(item: string, categoryIndex: number): Partial<PersonalityScores> {
+  const h = hashString(item.toLowerCase().trim() + categoryIndex);
+  const dims: (keyof PersonalityScores)[] = [
+    "expressiveness", "sophistication", "adventurousness", "warmth", "energy", "nostalgia"
+  ];
+  const signal: Partial<PersonalityScores> = {};
+  for (let i = 0; i < dims.length; i++) {
+    // Each dimension gets a value from -1 to 2 based on hash bits
+    const bits = (h >> (i * 4)) & 0xf;
+    signal[dims[i]] = bits < 4 ? -1 : bits < 8 ? 0 : bits < 12 ? 1 : 2;
+  }
+  return signal;
+}
+
 // --- Archetypes ---
 // Matched via pattern scoring, not single-trait mapping
 
@@ -129,52 +154,52 @@ export interface Archetype {
 const ARCHETYPES: Archetype[] = [
   {
     name: "The Curator",
-    emoji: "🎯",
+    emoji: "target",
     match: (s) => s.sophistication * 2.5 + s.adventurousness - s.expressiveness * 0.5,
   },
   {
     name: "The Nighthawk",
-    emoji: "🦉",
+    emoji: "crystal",
     match: (s) => s.energy * 2 + s.adventurousness + s.expressiveness - s.warmth,
   },
   {
     name: "The Connector",
-    emoji: "🤝",
+    emoji: "heart",
     match: (s) => s.warmth * 2.5 + s.expressiveness + s.energy * 0.5,
   },
   {
     name: "The Deep Cut",
-    emoji: "💎",
+    emoji: "sparkle",
     match: (s) => s.sophistication * 2 + s.adventurousness * 1.5 - s.energy,
   },
   {
     name: "The Nostalgist",
-    emoji: "📻",
+    emoji: "music",
     match: (s) => s.nostalgia * 2.5 + s.warmth + s.sophistication * 0.5,
   },
   {
     name: "The Explorer",
-    emoji: "🧭",
+    emoji: "map",
     match: (s) => s.adventurousness * 2.5 + s.energy + s.expressiveness * 0.5 - s.nostalgia,
   },
   {
     name: "The Vibe Architect",
-    emoji: "🎨",
+    emoji: "palette",
     match: (s) => s.sophistication * 1.5 + s.expressiveness * 1.5 + s.adventurousness - s.warmth * 0.5,
   },
   {
     name: "The Main Character",
-    emoji: "⭐",
+    emoji: "star",
     match: (s) => s.expressiveness * 2.5 + s.energy * 1.5 + s.warmth * 0.5,
   },
   {
     name: "The Minimalist",
-    emoji: "🪨",
+    emoji: "coffee",
     match: (s) => s.sophistication * 2 - s.energy * 1.5 - s.expressiveness + s.warmth * 0.5,
   },
   {
     name: "The Wildcard",
-    emoji: "🃏",
+    emoji: "magic",
     match: (s) => {
       const vals = Object.values(s);
       const range = Math.max(...vals) - Math.min(...vals);
@@ -198,15 +223,15 @@ const TRAIT_LABELS: Record<keyof PersonalityScores, string> = {
 
 function aggregateScores(
   selections: string[],
-  signalMap: Record<string, Partial<PersonalityScores>>
+  signalMap: Record<string, Partial<PersonalityScores>>,
+  categoryIndex: number = 0
 ): PersonalityScores {
   const total = { ...ZERO_SCORES };
   for (const item of selections) {
-    const signals = signalMap[item];
-    if (signals) {
-      for (const [key, val] of Object.entries(signals)) {
-        total[key as keyof PersonalityScores] += val as number;
-      }
+    // Use predefined signal if available, otherwise generate from hash
+    const signals = signalMap[item] || syntheticSignal(item, categoryIndex);
+    for (const [key, val] of Object.entries(signals)) {
+      total[key as keyof PersonalityScores] += val as number;
     }
   }
   return total;
@@ -216,7 +241,7 @@ function computeFullProfile(selections: Record<number, string[]>): PersonalitySc
   const total = { ...ZERO_SCORES };
   for (let i = 0; i < SIGNAL_MAPS.length; i++) {
     const items = selections[i] || [];
-    const catScores = aggregateScores(items, SIGNAL_MAPS[i]);
+    const catScores = aggregateScores(items, SIGNAL_MAPS[i], i);
     for (const key of Object.keys(total) as (keyof PersonalityScores)[]) {
       total[key] += catScores[key];
     }
@@ -294,27 +319,33 @@ function getFallbackCategoryInsight(catIndex: number, selections: string[], scor
   };
 
   // Find dominant dimension for this category
-  const catScores = aggregateScores(selections, SIGNAL_MAPS[catIndex]);
+  const catScores = aggregateScores(selections, SIGNAL_MAPS[catIndex], catIndex);
   const dominant = Object.entries(catScores)
     .sort(([, a], [, b]) => b - a)[0][0] as keyof PersonalityScores;
 
   return labels[catIndex]?.[dominant] || "Unique taste";
 }
 
-function getFallbackArchetypeDescription(archetype: Archetype, scores: PersonalityScores): string {
-  const descs: Record<string, string> = {
-    "The Curator": "Every recommendation you make is gold. Your taste is intentional, refined, and always a step ahead.",
-    "The Nighthawk": "You come alive after dark. High energy, always on the move, always chasing the next experience.",
-    "The Connector": "You bring people together. Warm, magnetic, and always choosing spots where everyone belongs.",
-    "The Deep Cut": "While others skim, you go deep. Your picks are niche, intentional, and surprisingly on point.",
-    "The Nostalgist": "You find beauty in what endures. Classic taste with emotional depth — an old soul in the best way.",
-    "The Explorer": "Routine bores you. You're first to try the new spot, the fusion menu, the underground show.",
-    "The Vibe Architect": "You don't just pick places — you design experiences. Aesthetic and atmosphere always aligned.",
-    "The Main Character": "Bold, expressive, unapologetically yourself. People follow your lead because the energy is contagious.",
-    "The Minimalist": "Quality over quantity. You don't need the hype — just the right place, the right people, the right moment.",
-    "The Wildcard": "Your taste defies labels. You'll pair a dive bar with a tasting menu and somehow it all makes sense.",
+function getFallbackArchetypeDescription(archetype: Archetype, scores: PersonalityScores, selections: Record<number, string[]>): string {
+  // Pick a few selections to reference for personalization
+  const allPicks = Object.values(selections).flat();
+  const highlights = allPicks.slice(0, 3).join(", ");
+  const pickCount = allPicks.length;
+
+  const descs: Record<string, (h: string, n: number) => string> = {
+    "The Curator": (h) => `Every recommendation you make is gold — from ${h} onward. Your taste is intentional, refined, and always a step ahead.`,
+    "The Nighthawk": (h) => `You come alive after dark. ${h} are just the warm-up — high energy, always chasing the next experience.`,
+    "The Connector": (h) => `You bring people together. Whether it's ${h}, you pick spots where everyone belongs.`,
+    "The Deep Cut": (h) => `While others skim the surface, you go deep. ${h} — your picks are niche, intentional, and surprisingly on point.`,
+    "The Nostalgist": (h) => `You find beauty in what endures. ${h} reveal an old soul with emotional depth — classic taste at its finest.`,
+    "The Explorer": (h) => `Routine bores you. ${h} are just the beginning — you're first to try the new spot, the fusion menu, the underground show.`,
+    "The Vibe Architect": (h) => `You don't just pick places — you design experiences. ${h} set the tone for a world you've carefully curated.`,
+    "The Main Character": (h, n) => `Bold, expressive, unapologetically yourself. From ${h} to everything else — ${n} picks that radiate main-character energy.`,
+    "The Minimalist": (h) => `Quality over quantity. ${h} — each pick is intentional. You don't need the hype, just the right moment.`,
+    "The Wildcard": (h) => `Your taste defies labels. ${h} in the same profile? Only you could make it all make sense.`,
   };
-  return descs[archetype.name] || "Your taste tells a story only you could write.";
+  const fn = descs[archetype.name];
+  return fn ? fn(highlights, pickCount) : `Your ${pickCount} picks tell a story only you could write.`;
 }
 
 function getFallbackTagline(archetype: Archetype): string {
@@ -436,7 +467,7 @@ export function analyzeTaste(selections: Record<number, string[]>): TasteAnalysi
       name: archetype.name,
       emoji: archetype.emoji,
       tagline: getFallbackTagline(archetype),
-      description: getFallbackArchetypeDescription(archetype, scores),
+      description: getFallbackArchetypeDescription(archetype, scores, selections),
     },
     scores,
     topTraits,

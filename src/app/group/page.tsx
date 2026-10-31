@@ -1,5 +1,7 @@
 "use client";
 
+import { IconTarget, IconEdit, IconMusic , Icon } from "@/components/icons/SweetSpotIcons";
+
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
@@ -9,6 +11,8 @@ import { GradientButton } from "@/components/ui/GradientButton";
 import { ChemistryRing } from "@/components/ui/ChemistryRing";
 import { Toast } from "@/components/ui/Toast";
 import { shareGroupInvite } from "@/lib/share";
+import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
+import { EventIllustration } from "@/components/ui/EventIllustrations";
 
 interface MemberProfile {
   name: string;
@@ -27,49 +31,45 @@ interface MemberProfile {
 }
 
 const OCCASIONS_SOCIAL = [
-  { id: "chill-night", label: "Chill Night", icon: "🌙" },
-  { id: "birthday", label: "Birthday", icon: "🎂" },
-  { id: "date-night", label: "Date Night", icon: "💫" },
-  { id: "celebration", label: "Celebration", icon: "🎉" },
+  { id: "chill-night", label: "Chill Night", icon: "crystal" },
+  { id: "birthday", label: "Birthday", icon: "cake" },
+  { id: "date-night", label: "Date Night", icon: "magic" },
+  { id: "celebration", label: "Celebration", icon: "celebrate" },
 ];
 
 const OCCASIONS_CORPORATE = [
-  { id: "team-dinner", label: "Team Dinner", icon: "🏢" },
-  { id: "client-entertainment", label: "Client Night", icon: "🤝" },
-  { id: "welcome-night", label: "Welcome Night", icon: "👋" },
-  { id: "offsite", label: "Offsite", icon: "✈️" },
+  { id: "team-dinner", label: "Team Dinner", icon: "building" },
+  { id: "client-entertainment", label: "Client Night", icon: "heart" },
+  { id: "welcome-night", label: "Welcome Night", icon: "wave" },
+  { id: "offsite", label: "Offsite", icon: "plane" },
 ];
 
-const DEMO_SELECTIONS: Record<string, Record<number, string[]>> = {
-  Alex: {
-    0: ["Radiohead", "Tame Impala"],
-    1: ["Inception", "Parasite"],
-    2: ["Japanese", "Ramen"],
-    3: ["Jazz clubs", "Speakeasy"],
-    4: ["Muji", "Minimalist"],
-  },
-  Jordan: {
-    0: ["SZA", "Frank Ocean"],
-    1: ["Everything Everywhere", "Spirited Away"],
-    2: ["Thai", "Korean BBQ"],
-    3: ["Live music", "Karaoke"],
-    4: ["Vintage", "Streetwear"],
-  },
-  Sam: {
-    0: ["Beyonce", "Bad Bunny", "Daft Punk"],
-    1: ["The Bear", "Ted Lasso"],
-    2: ["Mexican", "Street food"],
-    3: ["Dance clubs", "Rooftop bars"],
-    4: ["Nike", "Y2K"],
-  },
-  Riley: {
-    0: ["Taylor Swift", "Arctic Monkeys"],
-    1: ["Stranger Things", "The Office"],
-    2: ["Italian", "Mediterranean"],
-    3: ["Wine bars", "Comedy shows"],
-    4: ["Cottagecore", "Scandinavian"],
-  },
-};
+const TRAVEL_MODES = [
+  { id: "car", label: "Car", icon: "map" },
+  { id: "train", label: "Train", icon: "map" },
+  { id: "bus", label: "Bus", icon: "map" },
+  { id: "cycle", label: "Cycle", icon: "map" },
+  { id: "walk", label: "Walk", icon: "map" },
+];
+
+const DISTANCE_OPTIONS = [
+  { value: 1, label: "1 mi" },
+  { value: 3, label: "3 mi" },
+  { value: 5, label: "5 mi" },
+  { value: 10, label: "10 mi" },
+  { value: 25, label: "25 mi" },
+  { value: 50, label: "50+ mi" },
+];
+
+const TIME_OPTIONS = [
+  { value: 10, label: "10 min" },
+  { value: 15, label: "15 min" },
+  { value: 30, label: "30 min" },
+  { value: 45, label: "45 min" },
+  { value: 60, label: "1 hr" },
+  { value: 90, label: "1.5 hr" },
+];
+
 
 function computeChemistryScore(members: MemberProfile[]): number {
   if (members.length < 2) return 0;
@@ -92,11 +92,16 @@ export default function GroupPage() {
   const [mode, setMode] = useState<"social" | "corporate">("social");
   const [occasion, setOccasion] = useState("");
   const [location, setLocation] = useState("");
+  const [zipcode, setZipcode] = useState("");
+  const [travelMode, setTravelMode] = useState("car");
+  const [maxDistance, setMaxDistance] = useState(10);
+  const [maxTime, setMaxTime] = useState(30);
   const [groupCreated, setGroupCreated] = useState(false);
   const [groupId, setGroupId] = useState("");
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [linkCopied, setLinkCopied] = useState(false);
   const [toast, setToast] = useState("");
+  const [editingLocation, setEditingLocation] = useState(false);
 
   useEffect(() => {
     // Check if there's already a group
@@ -108,6 +113,10 @@ export default function GroupPage() {
         setMode(parsed.mode);
         setOccasion(parsed.occasion);
         setLocation(parsed.location);
+        setZipcode(parsed.zipcode || "");
+        setTravelMode(parsed.travelMode || "car");
+        setMaxDistance(parsed.maxDistance || 10);
+        setMaxTime(parsed.maxTime || 30);
         setMembers(parsed.members);
         setGroupId(parsed.id);
         setGroupCreated(true);
@@ -134,6 +143,10 @@ export default function GroupPage() {
       mode,
       occasion,
       location,
+      zipcode,
+      travelMode,
+      maxDistance,
+      maxTime,
       members,
       createdAt: new Date().toISOString(),
     };
@@ -142,26 +155,6 @@ export default function GroupPage() {
     setGroupCreated(true);
   };
 
-  const addDemoMember = (name: string) => {
-    const selections = DEMO_SELECTIONS[name];
-    if (!selections) return;
-
-    const newMember: MemberProfile = {
-      name,
-      selections,
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...members, newMember];
-    setMembers(updated);
-
-    // Update localStorage
-    const savedGroup = localStorage.getItem("sweetspot_group");
-    if (savedGroup) {
-      const parsed = JSON.parse(savedGroup);
-      parsed.members = updated;
-      localStorage.setItem("sweetspot_group", JSON.stringify(parsed));
-    }
-  };
 
   const removeMember = (index: number) => {
     const updated = members.filter((_, i) => i !== index);
@@ -190,6 +183,22 @@ export default function GroupPage() {
     }
   };
 
+  const saveLocationPrefs = () => {
+    const savedGroup = localStorage.getItem("sweetspot_group");
+    if (savedGroup) {
+      const parsed = JSON.parse(savedGroup);
+      parsed.location = location;
+      parsed.zipcode = zipcode;
+      parsed.travelMode = travelMode;
+      parsed.maxDistance = maxDistance;
+      parsed.maxTime = maxTime;
+      localStorage.setItem("sweetspot_group", JSON.stringify(parsed));
+    }
+    setEditingLocation(false);
+    setToast("Location preferences updated!");
+    setTimeout(() => setToast(""), 2000);
+  };
+
   const occasions = mode === "social" ? OCCASIONS_SOCIAL : OCCASIONS_CORPORATE;
 
   if (!profile) {
@@ -199,9 +208,9 @@ export default function GroupPage() {
         <Navbar />
         <div className="min-h-screen flex items-center justify-center px-6 pt-24">
           <GlassCard hover={false} className="p-8 text-center max-w-md">
-            <div className="text-4xl mb-4">🎯</div>
+            <div className="mb-4"><IconTarget size={40} /></div>
             <h2 className="text-xl font-bold mb-3">Take the Quiz First</h2>
-            <p className="text-white/40 mb-6">
+            <p className="text-text-secondary mb-6">
               We need your taste profile before you can create a group.
             </p>
             <a href="/quiz">
@@ -228,23 +237,125 @@ export default function GroupPage() {
               animate={{ opacity: 1, y: 0 }}
               className="text-center mb-12"
             >
-              <span className="text-xs text-white/30 uppercase tracking-widest">
+              <span className="text-xs text-text-muted uppercase tracking-widest">
                 {mode === "social" ? "Friends Night" : "Team Event"}
               </span>
               <h1 className="text-3xl md:text-4xl font-bold mt-2 mb-1">
                 {groupName}
               </h1>
-              <p className="text-white/40">
+              <p className="text-text-secondary">
                 {members.length} member{members.length !== 1 ? "s" : ""} ·{" "}
                 {occasions.find((o) => o.id === occasion)?.label || "Night Out"}{" "}
                 · {location || "Location TBD"}
+                {zipcode ? ` (${zipcode})` : ""}
               </p>
+              <button
+                onClick={() => setEditingLocation(!editingLocation)}
+                className="text-text-muted text-xs mt-1 hover:text-text-secondary transition-colors cursor-pointer inline-flex items-center gap-1"
+              >
+                <Icon name={TRAVEL_MODES.find((m) => m.id === travelMode)?.icon || "map"} size={14} />{" "}
+                Within {maxDistance} mi / {maxTime} min by {travelMode}
+                <span style={{ marginLeft: "0.25rem", display: "inline-flex" }}><IconEdit size={10} /></span>
+              </button>
             </motion.div>
+
+            {/* Inline location editor */}
+            {editingLocation && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-8"
+              >
+                <GlassCard hover={false} className="p-6 max-w-lg mx-auto">
+                  <h3 className="text-sm font-semibold mb-4 text-text-secondary">Edit Location & Travel</h3>
+
+                  <div className="flex gap-3 mb-4">
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="City or neighborhood"
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-white border border-border-light text-text-primary placeholder-text-muted outline-none focus:border-accent-rose/40 transition-colors text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={zipcode}
+                      onChange={(e) => setZipcode(e.target.value.replace(/[^\d-]/g, "").slice(0, 10))}
+                      placeholder="Zip"
+                      className="w-20 px-3 py-2.5 rounded-xl bg-white border border-border-light text-text-primary placeholder-text-muted outline-none focus:border-accent-rose/40 transition-colors text-center text-sm"
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <span className="text-xs text-text-muted block mb-2">Travel Mode</span>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {TRAVEL_MODES.map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => setTravelMode(m.id)}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                            travelMode === m.id
+                              ? "bg-accent-rose/10 border border-accent-rose/30 text-text-primary"
+                              : "bg-text-primary/[0.02] border border-border-light text-text-secondary hover:text-text-primary"
+                          }`}
+                        >
+                          <Icon name={m.icon} size={14} />{m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <span className="text-xs text-text-muted block mb-2">Max Distance</span>
+                      <div className="flex flex-wrap gap-1">
+                        {DISTANCE_OPTIONS.map((d) => (
+                          <button
+                            key={d.value}
+                            onClick={() => setMaxDistance(d.value)}
+                            className={`px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer ${
+                              maxDistance === d.value
+                                ? "bg-accent-rose/10 border border-accent-rose/30 text-text-primary"
+                                : "bg-text-primary/[0.02] border border-border-light text-text-secondary hover:text-text-primary"
+                            }`}
+                          >
+                            {d.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-xs text-text-muted block mb-2">Max Travel Time</span>
+                      <div className="flex flex-wrap gap-1">
+                        {TIME_OPTIONS.map((t) => (
+                          <button
+                            key={t.value}
+                            onClick={() => setMaxTime(t.value)}
+                            className={`px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer ${
+                              maxTime === t.value
+                                ? "bg-accent-rose/10 border border-accent-rose/30 text-text-primary"
+                                : "bg-text-primary/[0.02] border border-border-light text-text-secondary hover:text-text-primary"
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <GradientButton onClick={saveLocationPrefs} className="w-full">
+                    Save Preferences
+                  </GradientButton>
+                </GlassCard>
+              </motion.div>
+            )}
 
             <div className="grid lg:grid-cols-3 gap-6">
               {/* Chemistry score */}
               <GlassCard hover={false} className="p-6 text-center lg:col-span-1" delay={0}>
-                <span className="text-xs text-white/30 uppercase tracking-widest">
+                <span className="text-xs text-text-muted uppercase tracking-widest">
                   Group Chemistry
                 </span>
                 <div className="mt-4">
@@ -252,8 +363,8 @@ export default function GroupPage() {
                     <ChemistryRing score={chemistry} />
                   ) : (
                     <div className="py-8">
-                      <div className="text-4xl mb-3 opacity-30">🔗</div>
-                      <p className="text-sm text-white/30">
+                      <div className="mb-3 opacity-30"><IconTarget size={40} /></div>
+                      <p className="text-sm text-text-muted">
                         Add members to see chemistry
                       </p>
                     </div>
@@ -264,10 +375,10 @@ export default function GroupPage() {
               {/* Members list */}
               <GlassCard hover={false} className="p-6 lg:col-span-2" delay={0.1}>
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs text-white/30 uppercase tracking-widest">
+                  <span className="text-xs text-text-muted uppercase tracking-widest">
                     Members
                   </span>
-                  <span className="text-xs text-white/20">
+                  <span className="text-xs text-text-muted">
                     {members.length}/8
                   </span>
                 </div>
@@ -281,13 +392,13 @@ export default function GroupPage() {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 20, height: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        className="flex items-center justify-between py-3 px-4 rounded-xl bg-white/[0.03] group"
+                        className="flex items-center justify-between py-3 px-4 rounded-xl bg-text-primary/[0.03] group"
                       >
                         <div className="flex items-center gap-3">
                           {member.extras?.avatarImage ? (
                             <div
                               className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0"
-                              style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+                              style={{ border: "1px solid rgba(232,224,214,0.5)" }}
                             >
                               <img src={member.extras.avatarImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             </div>
@@ -296,8 +407,8 @@ export default function GroupPage() {
                               className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0"
                               style={{
                                 background: member.extras?.avatarEmoji
-                                  ? "linear-gradient(135deg, rgba(249,115,22,0.15), rgba(236,72,153,0.15))"
-                                  : "linear-gradient(135deg, rgba(249,115,22,0.4), rgba(236,72,153,0.4))",
+                                  ? "linear-gradient(135deg, rgba(232,120,138,0.15), rgba(184,160,210,0.15))"
+                                  : "linear-gradient(135deg, rgba(232,120,138,0.4), rgba(184,160,210,0.4))",
                                 fontSize: member.extras?.avatarEmoji ? "1.1rem" : "0.75rem",
                                 fontWeight: member.extras?.avatarEmoji ? 400 : 700,
                               }}
@@ -311,20 +422,17 @@ export default function GroupPage() {
                               {member.extras?.moodEmoji && (
                                 <span style={{ fontSize: "0.8rem" }}>{member.extras.moodEmoji}</span>
                               )}
-                              <span className="text-xs text-white/30">
-                                {Object.values(member.selections).flat().length} picks
-                              </span>
                             </div>
                             {member.extras?.currentSong && (
-                              <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.25)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "14rem" }}>
-                                🎵 {member.extras.currentSong}
+                              <div style={{ fontSize: "0.65rem", color: "rgba(45,42,38,0.25)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "14rem" }}>
+                                <IconMusic size={12} /> {member.extras.currentSong}
                               </div>
                             )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {i === 0 && (
-                            <span className="text-xs text-accent-orange/60 px-2 py-0.5 rounded-full bg-accent-orange/10">
+                            <span className="text-xs text-accent-rose/70 px-2 py-0.5 rounded-full bg-accent-rose/10">
                               You
                             </span>
                           )}
@@ -333,9 +441,9 @@ export default function GroupPage() {
                             className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                             style={{
                               width: "1.5rem", height: "1.5rem", borderRadius: "50%",
-                              background: "rgba(255,255,255,0.05)", border: "none",
+                              background: "rgba(45,42,38,0.04)", border: "none",
                               display: "flex", alignItems: "center", justifyContent: "center",
-                              color: "rgba(255,255,255,0.3)", fontSize: "0.7rem",
+                              color: "rgba(45,42,38,0.35)", fontSize: "0.7rem",
                             }}
                             title={`Remove ${member.name}`}
                           >
@@ -349,27 +457,38 @@ export default function GroupPage() {
                   </AnimatePresence>
                 </div>
 
-                {/* Add demo members */}
-                <div className="flex flex-wrap gap-2">
-                  {["Alex", "Jordan", "Sam", "Riley"].filter(
-                    (n) => !members.some((m) => m.name === n)
-                  ).slice(0, 3).map((name) => (
-                    <motion.button
-                      key={name}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => addDemoMember(name)}
-                      className="px-3 py-1.5 rounded-full text-xs border border-dashed border-white/10 text-white/30 hover:text-white/60 hover:border-white/20 transition-all cursor-pointer"
-                    >
-                      + Add {name} (demo)
-                    </motion.button>
-                  ))}
+                {/* Add members */}
+                <div className="flex flex-col items-center gap-3 mt-2">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => window.location.href = "/contacts"}
+                    className="w-full max-w-xs px-5 py-3 rounded-xl text-sm font-medium border-2 border-dashed border-border-light text-text-secondary hover:border-accent-rose/40 hover:bg-accent-rose/5 transition-all cursor-pointer inline-flex items-center justify-center gap-2"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                    Find Your Contacts
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => {
+                      if (navigator.share) {
+                        navigator.share({ title: "Join my group on The Sweet Spot", url: `${window.location.origin}/join/${groupId || "new"}` });
+                      } else {
+                        navigator.clipboard.writeText(`${window.location.origin}/join/${groupId || "new"}`);
+                      }
+                    }}
+                    className="w-full max-w-xs px-5 py-3 rounded-xl text-sm font-medium border-2 border-dashed border-border-light text-text-secondary hover:border-accent-lavender/40 hover:bg-accent-lavender/5 transition-all cursor-pointer inline-flex items-center justify-center gap-2"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                    Invite a Friend
+                  </motion.button>
                 </div>
               </GlassCard>
             </div>
 
             {/* Generate itinerary CTA */}
-            {members.length >= 2 && (
+            {members.length >= 1 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -393,7 +512,7 @@ export default function GroupPage() {
                     />
                   </svg>
                 </GradientButton>
-                <p className="text-xs text-white/20 mt-3">
+                <p className="text-xs text-text-muted mt-3">
                   Uses Qloo&apos;s taste graph to find your group&apos;s perfect night
                 </p>
               </motion.div>
@@ -407,13 +526,13 @@ export default function GroupPage() {
               className="mt-6 text-center"
             >
               <GlassCard hover={false} className="inline-flex items-center gap-3 px-5 py-3">
-                <span className="text-xs text-white/30">Share invite link:</span>
-                <code className="text-xs text-accent-cyan/60 bg-white/[0.03] px-3 py-1 rounded-lg">
+                <span className="text-xs text-text-muted">Share invite link:</span>
+                <code className="text-xs text-accent-sky/70 bg-text-primary/[0.03] px-3 py-1 rounded-lg">
                   {groupId ? `${typeof window !== "undefined" ? window.location.origin : ""}/join/${groupId.slice(0, 8)}...` : "generating..."}
                 </code>
                 <button
                   onClick={handleShareInvite}
-                  className="text-xs text-white/40 hover:text-white/60 transition-colors cursor-pointer"
+                  className="text-xs text-text-secondary hover:text-text-secondary transition-colors cursor-pointer"
                 >
                   {linkCopied ? "Copied!" : "Share"}
                 </button>
@@ -442,7 +561,7 @@ export default function GroupPage() {
             <h1 className="text-3xl md:text-4xl font-bold mb-2">
               Create a <span className="gradient-text">Group</span>
             </h1>
-            <p className="text-white/40">
+            <p className="text-text-secondary">
               Set up your night. Invite the crew. Let taste science do the
               rest.
             </p>
@@ -451,7 +570,7 @@ export default function GroupPage() {
           <GlassCard hover={false} className="p-8">
             {/* Mode toggle */}
             <div className="mb-8">
-              <label className="text-xs text-white/30 uppercase tracking-widest mb-3 block">
+              <label className="text-xs text-text-muted uppercase tracking-widest mb-3 block">
                 Mode
               </label>
               <div className="flex gap-2">
@@ -464,11 +583,11 @@ export default function GroupPage() {
                     }}
                     className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                       mode === m
-                        ? "bg-white/10 border border-white/15 text-white"
-                        : "bg-white/[0.02] border border-white/[0.06] text-white/30 hover:text-white/50"
+                        ? "bg-accent-rose/10 border border-accent-rose/30 text-text-primary"
+                        : "bg-white/[0.02] border border-white/[0.06] text-text-muted hover:text-text-secondary"
                     }`}
                   >
-                    {m === "social" ? "🌙 Friends" : "🏢 Teams"}
+                    {m === "social" ? "Friends" : "Teams"}
                   </button>
                 ))}
               </div>
@@ -476,7 +595,7 @@ export default function GroupPage() {
 
             {/* Group name */}
             <div className="mb-6">
-              <label className="text-xs text-white/30 uppercase tracking-widest mb-3 block">
+              <label className="text-xs text-text-muted uppercase tracking-widest mb-3 block">
                 Group Name
               </label>
               <input
@@ -488,15 +607,20 @@ export default function GroupPage() {
                     ? "Friday Night Crew"
                     : "Q4 Team Outing"
                 }
-                className="w-full px-5 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder-white/20 outline-none focus:border-white/20 transition-colors"
+                className="w-full px-5 py-3.5 rounded-xl bg-white border border-border-light text-text-primary placeholder-text-muted outline-none focus:border-accent-rose/40 transition-colors"
               />
             </div>
 
             {/* Occasion */}
             <div className="mb-6">
-              <label className="text-xs text-white/30 uppercase tracking-widest mb-3 block">
+              <label className="text-xs text-text-muted uppercase tracking-widest mb-3 block">
                 Occasion
               </label>
+              {occasion && (
+                <div className="flex justify-center mb-3">
+                  <EventIllustration eventId={occasion} size={100} />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 {occasions.map((o) => (
                   <button
@@ -504,11 +628,11 @@ export default function GroupPage() {
                     onClick={() => setOccasion(o.id)}
                     className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm transition-all cursor-pointer ${
                       occasion === o.id
-                        ? "bg-white/10 border border-white/15 text-white"
-                        : "bg-white/[0.02] border border-white/[0.06] text-white/40 hover:text-white/60"
+                        ? "bg-accent-rose/10 border border-accent-rose/30 text-text-primary"
+                        : "bg-text-primary/[0.02] border border-border-light text-text-secondary hover:text-text-primary"
                     }`}
                   >
-                    <span>{o.icon}</span>
+                    <Icon name={o.icon} size={16} />
                     {o.label}
                   </button>
                 ))}
@@ -516,17 +640,84 @@ export default function GroupPage() {
             </div>
 
             {/* Location */}
-            <div className="mb-8">
-              <label className="text-xs text-white/30 uppercase tracking-widest mb-3 block">
-                City / Neighborhood
+            <div className="mb-6">
+              <label className="text-xs text-text-muted uppercase tracking-widest mb-3 block">
+                Location
               </label>
-              <input
-                type="text"
+              <LocationAutocomplete
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Brooklyn, NYC"
-                className="w-full px-5 py-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder-white/20 outline-none focus:border-white/20 transition-colors"
+                zipcode={zipcode}
+                onChange={setLocation}
+                onZipcodeChange={setZipcode}
+                variant="compact"
               />
+            </div>
+
+            {/* Travel Mode */}
+            <div className="mb-6">
+              <label className="text-xs text-text-muted uppercase tracking-widest mb-3 block">
+                How are you getting there?
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {TRAVEL_MODES.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setTravelMode(m.id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all cursor-pointer ${
+                      travelMode === m.id
+                        ? "bg-accent-rose/10 border border-accent-rose/30 text-text-primary"
+                        : "bg-text-primary/[0.02] border border-border-light text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    <Icon name={m.icon} size={14} />
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Distance & Time */}
+            <div className="mb-8 grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-text-muted uppercase tracking-widest mb-3 block">
+                  Max Distance
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {DISTANCE_OPTIONS.map((d) => (
+                    <button
+                      key={d.value}
+                      onClick={() => setMaxDistance(d.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                        maxDistance === d.value
+                          ? "bg-accent-rose/10 border border-accent-rose/30 text-text-primary"
+                          : "bg-text-primary/[0.02] border border-border-light text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-text-muted uppercase tracking-widest mb-3 block">
+                  Max Travel Time
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {TIME_OPTIONS.map((t) => (
+                    <button
+                      key={t.value}
+                      onClick={() => setMaxTime(t.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                        maxTime === t.value
+                          ? "bg-accent-rose/10 border border-accent-rose/30 text-text-primary"
+                          : "bg-text-primary/[0.02] border border-border-light text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <GradientButton

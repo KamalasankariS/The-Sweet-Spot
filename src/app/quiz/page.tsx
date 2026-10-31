@@ -1,5 +1,7 @@
 "use client";
 
+import { IconCelebrate , Icon } from "@/components/icons/SweetSpotIcons";
+
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
@@ -10,14 +12,15 @@ import { GradientButton } from "@/components/ui/GradientButton";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Toast } from "@/components/ui/Toast";
 import { moderateName } from "@/lib/moderation";
+import { saveProfileEverywhere } from "@/lib/profileSync";
 
 const QUIZ_STEPS = [
   {
     category: "Music",
-    icon: "🎵",
+    icon: "music",
     prompt: "What artists or bands do you love?",
     placeholder: "Type an artist name...",
-    color: "#f97316",
+    color: "#E8788A",
     entityType: "urn:entity:artist",
     suggestions: [
       "Radiohead",
@@ -36,10 +39,10 @@ const QUIZ_STEPS = [
   },
   {
     category: "Movies & TV",
-    icon: "🎬",
+    icon: "theater",
     prompt: "What are your favorite movies or shows?",
     placeholder: "Type a movie or show...",
-    color: "#ec4899",
+    color: "#B8A0D2",
     entityType: "urn:entity:movie,urn:entity:tv_show",
     suggestions: [
       "Inception",
@@ -58,11 +61,12 @@ const QUIZ_STEPS = [
   },
   {
     category: "Dining",
-    icon: "🍽️",
+    icon: "restaurant",
     prompt: "What cuisines or food vibes are you into?",
     placeholder: "Type a cuisine or restaurant...",
-    color: "#8b5cf6",
+    color: "#8CBFD4",
     entityType: "urn:entity:place",
+    searchContext: "restaurant food",
     suggestions: [
       "Japanese",
       "Italian",
@@ -79,33 +83,38 @@ const QUIZ_STEPS = [
     ],
   },
   {
-    category: "Nightlife & Vibes",
-    icon: "🌙",
-    prompt: "What's your ideal night out vibe?",
-    placeholder: "Type a vibe or venue type...",
-    color: "#06b6d4",
+    category: "Going Out",
+    icon: "map",
+    prompt: "What kind of outings or hangouts do you enjoy?",
+    placeholder: "Type a venue, activity, or vibe...",
+    color: "#8AC4A0",
     entityType: "urn:entity:place",
+    searchContext: "venue activity entertainment",
     suggestions: [
       "Cocktail bars",
+      "Coffee shops",
       "Live music",
-      "Jazz clubs",
+      "Brunch spots",
       "Rooftop bars",
-      "Dive bars",
-      "Dance clubs",
-      "Wine bars",
+      "Museums",
       "Comedy shows",
-      "Speakeasy",
+      "Parks & picnics",
+      "Bowling alleys",
       "Karaoke",
-      "Beer gardens",
+      "Board game cafes",
+      "Farmers markets",
+      "Escape rooms",
       "Art galleries",
+      "Beer gardens",
+      "Theater",
     ],
   },
   {
     category: "Brands & Style",
-    icon: "✨",
+    icon: "fashion",
     prompt: "What brands or aesthetics resonate with you?",
     placeholder: "Type a brand or style...",
-    color: "#84cc16",
+    color: "#E8B88A",
     entityType: "urn:entity:brand",
     suggestions: [
       "Nike",
@@ -142,6 +151,8 @@ export default function QuizPage() {
   );
   const [quizComplete, setQuizComplete] = useState(false);
   const [userName, setUserName] = useState("");
+  const [profileMode, setProfileMode] = useState<"me" | "group">("me");
+  const [groupName, setGroupName] = useState("");
   const [toast, setToast] = useState("");
 
   const handleAdd = useCallback(
@@ -214,13 +225,13 @@ export default function QuizPage() {
                 transition={{ delay: 0.3, type: "spring" }}
                 className="text-6xl mb-6"
               >
-                🎉
+                <IconCelebrate size={28} />
               </motion.div>
 
               <h2 className="text-2xl font-bold mb-2">
                 Taste DNA <span className="gradient-text">Mapped!</span>
               </h2>
-              <p className="text-white/40 mb-8">
+              <p className="text-text-secondary mb-8">
                 {totalPicks} cultural data points across{" "}
                 {QUIZ_STEPS.length} domains. Your profile is ready.
               </p>
@@ -230,11 +241,11 @@ export default function QuizPage() {
                 {QUIZ_STEPS.map((s, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between py-2 px-4 rounded-xl bg-white/[0.03]"
+                    className="flex items-center justify-between py-2 px-4 rounded-xl bg-text-primary/[0.03]"
                   >
                     <div className="flex items-center gap-2">
-                      <span>{s.icon}</span>
-                      <span className="text-sm text-white/60">
+                      <Icon name={s.icon} size={16} />
+                      <span className="text-sm text-text-secondary">
                         {s.category}
                       </span>
                     </div>
@@ -245,71 +256,149 @@ export default function QuizPage() {
                 ))}
               </div>
 
+              {/* Who is this for? */}
+              <div className="mb-4">
+                <p style={{ fontSize: "0.65rem", color: "rgba(45,42,38,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
+                  Who is this for?
+                </p>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    onClick={() => setProfileMode("me")}
+                    style={{
+                      flex: 1, padding: "0.65rem", borderRadius: "0.75rem",
+                      background: profileMode === "me" ? "rgba(232,120,138,0.12)" : "rgba(45,42,38,0.02)",
+                      border: `1px solid ${profileMode === "me" ? "rgba(232,120,138,0.4)" : "rgba(232,224,214,0.5)"}`,
+                      color: profileMode === "me" ? "#2D2A26" : "rgba(107,100,90,0.8)",
+                      cursor: "pointer", fontSize: "0.85rem", fontWeight: 500, transition: "all 0.15s",
+                    }}
+                  >
+                    Just Me
+                  </button>
+                  <button
+                    onClick={() => setProfileMode("group")}
+                    style={{
+                      flex: 1, padding: "0.65rem", borderRadius: "0.75rem",
+                      background: profileMode === "group" ? "rgba(140,191,212,0.12)" : "rgba(45,42,38,0.02)",
+                      border: `1px solid ${profileMode === "group" ? "rgba(140,191,212,0.4)" : "rgba(232,224,214,0.5)"}`,
+                      color: profileMode === "group" ? "#2D2A26" : "rgba(107,100,90,0.8)",
+                      cursor: "pointer", fontSize: "0.85rem", fontWeight: 500, transition: "all 0.15s",
+                    }}
+                  >
+                    A Group
+                  </button>
+                </div>
+              </div>
+
               {/* Name input */}
               <div className="mb-6">
                 <input
                   type="text"
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
-                  placeholder="Your name (for your group)"
-                  className="w-full px-6 py-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] text-white placeholder-white/20 outline-none focus:border-white/20 transition-colors text-center"
+                  placeholder={profileMode === "me" ? "Your name" : "Your name (as shown to group)"}
+                  className="w-full px-6 py-4 rounded-2xl bg-white border border-border-light text-text-primary placeholder-text-muted outline-none focus:border-accent-rose/40 transition-colors text-center"
                 />
+                {profileMode === "group" && (
+                  <input
+                    type="text"
+                    value={groupName}
+                    onChange={(e) => setGroupName(e.target.value)}
+                    placeholder="Group name (e.g. Friday Crew, Date Night)"
+                    className="w-full px-6 py-4 rounded-2xl bg-white border border-border-light text-text-primary placeholder-text-muted outline-none focus:border-accent-rose/40 transition-colors text-center"
+                    style={{ marginTop: "0.5rem" }}
+                  />
+                )}
               </div>
 
               <div className="flex flex-col gap-3">
-                <GradientButton
-                  onClick={() => {
-                    const check = moderateName(userName.trim());
-                    if (!check.passed) {
-                      setToast(check.reason!);
-                      setTimeout(() => setToast(""), 3000);
-                      return;
-                    }
-                    const profile = {
-                      name: userName,
-                      selections,
-                      entityIds,
-                      entityImages,
-                      createdAt: new Date().toISOString(),
-                    };
-                    localStorage.setItem(
-                      "sweetspot_profile",
-                      JSON.stringify(profile)
-                    );
-                    window.location.href = "/group";
-                  }}
-                  disabled={!userName.trim()}
-                >
-                  Create or Join a Group
-                </GradientButton>
-                <GradientButton
-                  variant="ghost"
-                  onClick={() => {
-                    const nameToCheck = userName.trim() || "You";
-                    if (userName.trim()) {
-                      const check = moderateName(nameToCheck);
+                {profileMode === "group" ? (
+                  <GradientButton
+                    onClick={() => {
+                      const check = moderateName(userName.trim());
                       if (!check.passed) {
                         setToast(check.reason!);
                         setTimeout(() => setToast(""), 3000);
                         return;
                       }
-                    }
-                    const profile = {
-                      name: nameToCheck,
-                      selections,
-                      entityIds,
-                      entityImages,
-                      createdAt: new Date().toISOString(),
-                    };
-                    localStorage.setItem(
-                      "sweetspot_profile",
-                      JSON.stringify(profile)
-                    );
-                    window.location.href = "/dna";
-                  }}
-                >
-                  View My Cultural DNA Card
-                </GradientButton>
+                      if (groupName.trim()) {
+                        const gCheck = moderateName(groupName.trim());
+                        if (!gCheck.passed) {
+                          setToast(gCheck.reason!);
+                          setTimeout(() => setToast(""), 3000);
+                          return;
+                        }
+                      }
+                      const profile = {
+                        name: userName,
+                        selections,
+                        entityIds,
+                        entityImages,
+                        createdAt: new Date().toISOString(),
+                      };
+                      saveProfileEverywhere(profile);
+                      // Pre-set group name if provided
+                      if (groupName.trim()) {
+                        localStorage.setItem("sweetspot_pending_group", groupName.trim());
+                      }
+                      window.location.href = "/group";
+                    }}
+                    disabled={!userName.trim()}
+                  >
+                    Create or Join a Group
+                  </GradientButton>
+                ) : (
+                  <>
+                    <GradientButton
+                      onClick={() => {
+                        const nameToCheck = userName.trim() || "You";
+                        if (userName.trim()) {
+                          const check = moderateName(nameToCheck);
+                          if (!check.passed) {
+                            setToast(check.reason!);
+                            setTimeout(() => setToast(""), 3000);
+                            return;
+                          }
+                        }
+                        const profile = {
+                          name: nameToCheck,
+                          selections,
+                          entityIds,
+                          entityImages,
+                          createdAt: new Date().toISOString(),
+                        };
+                        saveProfileEverywhere(profile);
+                        window.location.href = "/dna";
+                      }}
+                    >
+                      View My Cultural DNA Card
+                    </GradientButton>
+                    <GradientButton
+                      variant="ghost"
+                      onClick={() => {
+                        const nameToCheck = userName.trim() || "You";
+                        if (userName.trim()) {
+                          const check = moderateName(nameToCheck);
+                          if (!check.passed) {
+                            setToast(check.reason!);
+                            setTimeout(() => setToast(""), 3000);
+                            return;
+                          }
+                        }
+                        const profile = {
+                          name: nameToCheck,
+                          selections,
+                          entityIds,
+                          entityImages,
+                          createdAt: new Date().toISOString(),
+                        };
+                        saveProfileEverywhere(profile);
+                        window.location.href = "/plan";
+                      }}
+                    >
+                      Plan My Own Night
+                    </GradientButton>
+                  </>
+                )}
               </div>
             </GlassCard>
           </motion.div>
@@ -341,7 +430,9 @@ export default function QuizPage() {
             color={step.color}
             suggestions={step.suggestions}
             entityType={step.entityType}
+            searchContext={"searchContext" in step ? (step as { searchContext: string }).searchContext : undefined}
             selections={currentSelections}
+            selectionImages={entityImages[currentStep] || {}}
             onAddSelection={handleAdd}
             onRemoveSelection={handleRemove}
           />
@@ -352,7 +443,7 @@ export default function QuizPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="flex items-center gap-4 mt-12"
+          className="flex items-center gap-4 mt-8"
         >
           {currentStep > 0 && (
             <GradientButton variant="ghost" onClick={handleBack}>
@@ -399,7 +490,7 @@ export default function QuizPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 1 }}
             onClick={handleNext}
-            className="mt-4 text-xs text-white/20 hover:text-white/40 transition-colors"
+            className="mt-4 text-xs text-text-muted hover:text-text-secondary transition-colors"
           >
             Skip this category
           </motion.button>

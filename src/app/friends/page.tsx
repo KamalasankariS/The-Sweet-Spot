@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Navbar } from "@/components/layout/Navbar";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { ShareProfileModal } from "@/components/ui/ShareProfileModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useFriendships, type FriendProfile, type Friendship } from "@/hooks/useFriendships";
 import Link from "next/link";
@@ -394,6 +395,7 @@ export default function FriendsPage() {
   const { friends, pendingReceived, pendingSent, loading, acceptRequest, declineRequest, removeFriend, blockUser } = useFriendships();
   const [tab, setTab] = useState<"all" | "requests" | "find">("all");
   const [toast, setToast] = useState("");
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const showToast = (msg: string) => setToast(msg);
 
@@ -453,22 +455,7 @@ export default function FriendsPage() {
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <motion.button
               whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              onClick={async () => {
-                const profileUrl = `${window.location.origin}/profile/${user?.id || ""}`;
-                const shareData = {
-                  title: "Add me on The Sweet Spot!",
-                  text: "Join me on The Sweet Spot and let's plan our next outing together!",
-                  url: profileUrl,
-                };
-                try {
-                  if (navigator.share) {
-                    await navigator.share(shareData);
-                  } else {
-                    await navigator.clipboard.writeText(profileUrl);
-                    showToast("Profile link copied!");
-                  }
-                } catch { /* user cancelled share */ }
-              }}
+              onClick={() => setShareModalOpen(true)}
               style={{
                 padding: "0.5rem 1rem", borderRadius: "0.75rem",
                 background: "rgba(255,255,255,0.7)", border: "1px solid rgba(232,224,214,0.6)",
@@ -542,22 +529,7 @@ export default function FriendsPage() {
                   </p>
                   <motion.button
                     whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                    onClick={async () => {
-                      const inviteUrl = `${window.location.origin}/profile/${user?.id || ""}`;
-                      const shareData = {
-                        title: "Join me on The Sweet Spot!",
-                        text: "Take the taste quiz and let's plan our next outing together!",
-                        url: inviteUrl,
-                      };
-                      try {
-                        if (navigator.share) {
-                          await navigator.share(shareData);
-                        } else {
-                          await navigator.clipboard.writeText(inviteUrl);
-                          showToast("Invite link copied!");
-                        }
-                      } catch { /* user cancelled */ }
-                    }}
+                    onClick={() => setShareModalOpen(true)}
                     style={{
                       padding: "0.6rem 1.25rem", borderRadius: "0.75rem",
                       background: "linear-gradient(135deg, #E8788A, #B8A0D2)",
@@ -650,6 +622,16 @@ export default function FriendsPage() {
           </>
         )}
       </div>
+
+      {/* Share Profile Modal */}
+      {user && (
+        <ShareProfileModal
+          open={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          profileOwnerId={user.id}
+          profileOwnerUsername={user.user_metadata?.username || user.user_metadata?.display_name || ""}
+        />
+      )}
 
       {/* Toast */}
       <AnimatePresence>

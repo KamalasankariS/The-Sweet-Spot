@@ -442,18 +442,52 @@ export default function FriendsPage() {
               </span>
             )}
           </div>
-          <motion.button
-            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            onClick={() => setTab("find")}
-            style={{
-              padding: "0.5rem 1rem", borderRadius: "0.75rem",
-              background: "linear-gradient(135deg, #E8788A, #B8A0D2)",
-              color: "white", border: "none", fontSize: "0.8rem",
-              fontWeight: 600, cursor: "pointer",
-            }}
-          >
-            + Add Friends
-          </motion.button>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <motion.button
+              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+              onClick={async () => {
+                const profileUrl = `${window.location.origin}/profile/${user?.id || ""}`;
+                const shareData = {
+                  title: "Add me on The Sweet Spot!",
+                  text: "Join me on The Sweet Spot and let's plan our next outing together!",
+                  url: profileUrl,
+                };
+                try {
+                  if (navigator.share) {
+                    await navigator.share(shareData);
+                  } else {
+                    await navigator.clipboard.writeText(profileUrl);
+                    showToast("Profile link copied!");
+                  }
+                } catch { /* user cancelled share */ }
+              }}
+              style={{
+                padding: "0.5rem 1rem", borderRadius: "0.75rem",
+                background: "rgba(255,255,255,0.7)", border: "1px solid rgba(232,224,214,0.6)",
+                color: "rgba(45,42,38,0.7)", fontSize: "0.8rem",
+                fontWeight: 600, cursor: "pointer",
+                display: "flex", alignItems: "center", gap: "0.35rem",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              Share Profile
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+              onClick={() => setTab("find")}
+              style={{
+                padding: "0.5rem 1rem", borderRadius: "0.75rem",
+                background: "linear-gradient(135deg, #E8788A, #B8A0D2)",
+                color: "white", border: "none", fontSize: "0.8rem",
+                fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              + Add Friends
+            </motion.button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -495,9 +529,41 @@ export default function FriendsPage() {
                 <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
                   <p style={{ marginBottom: "0.5rem" }}><IconWave size={28} /></p>
                   <p style={{ fontSize: "0.9rem", fontWeight: 600, color: "rgba(45,42,38,0.6)" }}>No friends yet</p>
-                  <p style={{ fontSize: "0.78rem", color: "rgba(107,100,90,0.4)", marginTop: "0.3rem" }}>
+                  <p style={{ fontSize: "0.78rem", color: "rgba(107,100,90,0.4)", marginTop: "0.3rem", marginBottom: "1rem" }}>
                     Find and add friends to get started!
                   </p>
+                  <motion.button
+                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                    onClick={async () => {
+                      const inviteUrl = `${window.location.origin}/profile/${user?.id || ""}`;
+                      const shareData = {
+                        title: "Join me on The Sweet Spot!",
+                        text: "Take the taste quiz and let's plan our next outing together!",
+                        url: inviteUrl,
+                      };
+                      try {
+                        if (navigator.share) {
+                          await navigator.share(shareData);
+                        } else {
+                          await navigator.clipboard.writeText(inviteUrl);
+                          showToast("Invite link copied!");
+                        }
+                      } catch { /* user cancelled */ }
+                    }}
+                    style={{
+                      padding: "0.6rem 1.25rem", borderRadius: "0.75rem",
+                      background: "linear-gradient(135deg, #E8788A, #B8A0D2)",
+                      color: "white", border: "none", fontSize: "0.82rem",
+                      fontWeight: 600, cursor: "pointer",
+                      display: "inline-flex", alignItems: "center", gap: "0.4rem",
+                    }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                    </svg>
+                    Invite Friends
+                  </motion.button>
                 </div>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "0.6rem" }}>

@@ -50,12 +50,13 @@ function AuthPageInner() {
   useEffect(() => {
     if (step === "success") {
       syncToSupabase();
+      const nextUrl = searchParams.get("next") || "/";
       const timer = setTimeout(async () => {
         // Check if user already has name set — skip onboarding if so
         if (supabase) {
           const { data: { user: currentUser } } = await supabase.auth.getUser();
           if (currentUser?.user_metadata?.first_name && currentUser?.user_metadata?.username) {
-            router.push("/");
+            router.push(nextUrl);
             return;
           }
         }
@@ -63,7 +64,7 @@ function AuthPageInner() {
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [step, syncToSupabase, supabase, router]);
+  }, [step, syncToSupabase, supabase, router, searchParams]);
 
   // --- OAuth (Google) ---
   const handleOAuth = async (provider: "google" | "apple") => {
@@ -72,10 +73,14 @@ function AuthPageInner() {
       return;
     }
     setError("");
+    const nextParam = searchParams.get("next");
+    const successUrl = nextParam
+      ? `/auth?success=true&next=${encodeURIComponent(nextParam)}`
+      : `/auth?success=true`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/auth?success=true`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(successUrl)}`,
       },
     });
     if (error) setError(error.message);
@@ -169,7 +174,8 @@ function AuthPageInner() {
         },
       });
       if (error) throw error;
-      router.push("/profile");
+      const nextUrl = searchParams.get("next");
+      router.push(nextUrl || "/profile");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save profile");
     } finally {
@@ -377,7 +383,7 @@ function AuthPageInner() {
 
                     <div style={{ textAlign: "center", marginTop: "1.25rem" }}>
                       <button
-                        onClick={() => router.push("/profile")}
+                        onClick={() => router.push(searchParams.get("next") || "/profile")}
                         style={linkBtnStyle}
                       >
                         Skip for now

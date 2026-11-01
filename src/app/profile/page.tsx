@@ -1229,8 +1229,9 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: "0.75rem" }}>
+                <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
                   <GradientButton onClick={handleSave}>Save Profile</GradientButton>
+                  <GradientButton variant="outline" onClick={() => { window.location.href = "/quiz"; }}>Retake Quiz</GradientButton>
                   <GradientButton variant="ghost" onClick={() => { setEditing(false); musicSearch.clear(); movieSearch.clear(); foodSearch.clear(); }}>Cancel</GradientButton>
                 </div>
               </GlassCard>
@@ -1499,7 +1500,8 @@ function FoodAutocompleteField({
   style?: React.CSSProperties;
 }) {
   const [focused, setFocused] = useState(false);
-  const hasSelection = !!(value && selectedImage);
+  const [selected, setSelected] = useState(false);
+  const hasSelection = !!(value && (selectedImage || selected));
   const q = value.toLowerCase().trim();
 
   // Quick pick suggestions that match what the user is typing
@@ -1521,7 +1523,7 @@ function FoodAutocompleteField({
       </label>
 
       {/* Selected state with flag/image */}
-      {hasSelection ? (
+      {hasSelection && selectedImage ? (
         <div style={{
           display: "flex", alignItems: "center", gap: "0.75rem",
           padding: "0.5rem 0.75rem", borderRadius: "0.75rem",
@@ -1537,12 +1539,12 @@ function FoodAutocompleteField({
             </div>
           </div>
           <button
-            onClick={() => { onChange(""); onSelect("", undefined); }}
+            onClick={() => { onChange(""); onSelect("", undefined); setSelected(false); }}
             style={{ background: "none", border: "none", color: "rgba(107,100,90,0.6)", cursor: "pointer", fontSize: "1.1rem", padding: "0.2rem", lineHeight: 1 }}
           >×</button>
         </div>
-      ) : value && !selectedImage && getCuisineFlag(value) ? (
-        /* Selected without image — show flag badge */
+      ) : hasSelection && !selectedImage ? (
+        /* Selected without image — show flag or text badge */
         <div style={{
           display: "flex", alignItems: "center", gap: "0.75rem",
           padding: "0.5rem 0.75rem", borderRadius: "0.75rem",
@@ -1552,12 +1554,12 @@ function FoodAutocompleteField({
             width: "2.5rem", height: "2.5rem", borderRadius: "0.5rem",
             background: "rgba(45,42,38,0.04)", display: "flex",
             alignItems: "center", justifyContent: "center", fontSize: "1.4rem", flexShrink: 0,
-          }}>{getCuisineFlag(value)}</div>
+          }}>{getCuisineFlag(value) || "🍽"}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "#2D2A26" }}>{value}</div>
           </div>
           <button
-            onClick={() => { onChange(""); onSelect("", undefined); }}
+            onClick={() => { onChange(""); onSelect("", undefined); setSelected(false); }}
             style={{ background: "none", border: "none", color: "rgba(107,100,90,0.6)", cursor: "pointer", fontSize: "1.1rem", padding: "0.2rem", lineHeight: 1 }}
           >×</button>
         </div>
@@ -1585,7 +1587,7 @@ function FoodAutocompleteField({
             return (
               <button
                 key={s}
-                onMouseDown={(e) => { e.preventDefault(); onSelect(s, undefined); }}
+                onMouseDown={(e) => { e.preventDefault(); onSelect(s, undefined); setSelected(true); setFocused(false); }}
                 style={{
                   padding: "0.3rem 0.6rem", borderRadius: "9999px",
                   background: "rgba(45,42,38,0.03)", border: "1px solid rgba(232,224,214,0.6)",
@@ -1612,9 +1614,10 @@ function FoodAutocompleteField({
             <button
               onMouseDown={(e) => {
                 e.preventDefault();
-                // Capitalize first letter
                 const name = value.charAt(0).toUpperCase() + value.slice(1);
                 onSelect(name, undefined);
+                setSelected(true);
+                setFocused(false);
               }}
               style={{
                 width: "100%", display: "flex", alignItems: "center", gap: "0.65rem",
@@ -1639,7 +1642,7 @@ function FoodAutocompleteField({
             return (
               <button
                 key={`qp-${s}`}
-                onMouseDown={(e) => { e.preventDefault(); onSelect(s, undefined); }}
+                onMouseDown={(e) => { e.preventDefault(); onSelect(s, undefined); setSelected(true); setFocused(false); }}
                 style={{
                   width: "100%", display: "flex", alignItems: "center", gap: "0.65rem",
                   padding: "0.5rem 0.75rem", background: "transparent", border: "none",
@@ -1667,7 +1670,7 @@ function FoodAutocompleteField({
               return (
                 <button
                   key={r.id}
-                  onMouseDown={(e) => { e.preventDefault(); onSelect(r.name, r.imageUrl); }}
+                  onMouseDown={(e) => { e.preventDefault(); onSelect(r.name, r.imageUrl); setSelected(true); setFocused(false); }}
                   style={{
                     width: "100%", display: "flex", alignItems: "center", gap: "0.65rem",
                     padding: "0.55rem 0.75rem", background: "transparent", border: "none",

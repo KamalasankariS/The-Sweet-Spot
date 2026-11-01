@@ -30,6 +30,8 @@ interface PublicProfile {
     currentSong?: string;
     comfortMovie?: string;
     comfortFood?: string;
+    orientation?: string;
+    orientationVisible?: boolean;
   };
 }
 
@@ -337,6 +339,14 @@ function PublicProfileInner() {
           {extras.bio && (
             <p style={{ color: "rgba(107,100,90,0.7)", fontSize: "0.875rem", marginTop: "0.5rem", maxWidth: "24rem", margin: "0.5rem auto 0" }}>
               {extras.bio}
+            </p>
+          )}
+          {extras.orientation && extras.orientationVisible === true && (
+            <p style={{
+              fontSize: "0.78rem", color: "rgba(107,100,90,0.5)", marginTop: "0.4rem",
+              display: "inline-flex", alignItems: "center", gap: "0.3rem",
+            }}>
+              🏳️‍🌈 {extras.orientation}
             </p>
           )}
 

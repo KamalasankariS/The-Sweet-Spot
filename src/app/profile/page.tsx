@@ -27,18 +27,36 @@ const AVATAR_OPTIONS = [
 ];
 
 const MOOD_OPTIONS = [
-  { emoji: "heart", label: "Chill" },
-  { emoji: "fire", label: "Hyped" },
-  { emoji: "heart", label: "Romantic" },
-  { emoji: "fire", label: "Chaotic" },
-  { emoji: "star", label: "Cool" },
-  { emoji: "coffee", label: "Low-key" },
-  { emoji: "sparkle", label: "Magical" },
-  { emoji: "fire", label: "Melting" },
-  { emoji: "crystal", label: "Dead" },
-  { emoji: "sparkle", label: "Nerdy" },
-  { emoji: "crystal", label: "Ghosting" },
-  { emoji: "magic", label: "Foxy" },
+  { emoji: "😌", label: "Chill" },
+  { emoji: "🔥", label: "Hyped" },
+  { emoji: "❤️", label: "Romantic" },
+  { emoji: "🤪", label: "Chaotic" },
+  { emoji: "😎", label: "Cool" },
+  { emoji: "☕", label: "Low-key" },
+  { emoji: "✨", label: "Magical" },
+  { emoji: "🫠", label: "Melting" },
+  { emoji: "💀", label: "Dead" },
+  { emoji: "🤓", label: "Nerdy" },
+  { emoji: "👻", label: "Ghosting" },
+  { emoji: "🦊", label: "Foxy" },
+  { emoji: "😴", label: "Sleepy" },
+  { emoji: "🥰", label: "Loved" },
+  { emoji: "😤", label: "Fired Up" },
+  { emoji: "🥺", label: "Soft" },
+  { emoji: "😈", label: "Mischievous" },
+  { emoji: "🤩", label: "Starstruck" },
+  { emoji: "😭", label: "Emotional" },
+  { emoji: "🥳", label: "Party" },
+  { emoji: "😶‍🌫️", label: "Zoned Out" },
+  { emoji: "🫣", label: "Shy" },
+  { emoji: "😏", label: "Smirky" },
+  { emoji: "🤗", label: "Warm" },
+  { emoji: "😵‍💫", label: "Dizzy" },
+  { emoji: "🫶", label: "Grateful" },
+  { emoji: "💅", label: "Unbothered" },
+  { emoji: "🧠", label: "Brainy" },
+  { emoji: "🌙", label: "Dreamy" },
+  { emoji: "⚡", label: "Electric" },
 ];
 
 const CATEGORY_LABELS = ["Music", "Movies & TV", "Dining", "Nightlife & Vibes", "Brands & Style"];
@@ -233,6 +251,115 @@ function useQlooAutocomplete(entityType: string) {
   return { query, setQuery, results, searching, clear };
 }
 
+const EMOJI_CATEGORIES: { label: string; emojis: string[] }[] = [
+  { label: "Smileys", emojis: ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","😊","😇","🥰","😍","🤩","😘","😗","😚","😙","🥲","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🫢","🫣","🤫","🤔","🫡","🤐","🤨","😐","😑","😶","🫥","😶‍🌫️","😏","😒","🙄","😬","😮‍💨","🤥","🫨","😌","😔","😪","🤤","😴","😷","🤒","🤕","🤢","🤮","🥵","🥶","🥴","😵","😵‍💫","🤯","🤠","🥳","🥸","😎","🤓","🧐"] },
+  { label: "Emotions", emojis: ["😕","🫤","😟","🙁","😮","😯","😲","😳","🥺","🥹","😦","😧","😨","😰","😥","😢","😭","😱","😖","😣","😞","😓","😩","😫","🥱","😤","😡","😠","🤬","😈","👿","💀","☠️","💩","🤡","👹","👺","👻","👽","👾","🤖"] },
+  { label: "Gestures", emojis: ["👋","🤚","🖐️","✋","🖖","🫱","🫲","🫳","🫴","👌","🤌","🤏","✌️","🤞","🫰","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","🫵","👍","👎","✊","👊","🤛","🤜","👏","🙌","🫶","👐","🤲","🤝","🙏","💪","🦾"] },
+  { label: "Hearts", emojis: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❤️‍🔥","❤️‍🩹","❣️","💕","💞","💓","💗","💖","💘","💝","💟","♥️","🫀","💌"] },
+  { label: "Nature", emojis: ["🌸","🌺","🌻","🌹","🌷","🪻","🌼","💐","🍀","🌿","🌱","🌾","🍁","🍂","🍃","🪹","🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐸","🐵","🙈","🙉","🙊","🐔","🐧","🐦","🦋","🐛","🐝","🐞","🦄","🐲","🌈"] },
+  { label: "Food", emojis: ["🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🥑","🌶️","🌽","🥕","🧄","🧅","🥔","🍔","🍟","🍕","🌭","🥪","🌮","🌯","🍜","🍝","🍣","🍱","🍩","🍪","🎂","🍰","🧁","🍫","🍬","🍭","☕","🍵","🧋","🍺","🍷","🥂","🍹","🧃"] },
+  { label: "Activities", emojis: ["⚽","🏀","🏈","⚾","🎾","🏐","🎱","🏓","🏸","🥊","🎯","⛳","🏄","🏊","🚴","🧗","🤸","🎮","🕹️","🎲","🧩","🎭","🎨","🎬","🎤","🎧","🎵","🎶","🎹","🥁","🎷","🎺","🎸","🪘","🎻"] },
+  { label: "Travel", emojis: ["🚗","🚕","🚌","🏎️","🚓","🚑","🚒","✈️","🚀","🛸","🚁","⛵","🚢","🏠","🏡","🏢","🏰","🗼","🗽","⛩️","🕌","🛕","⛪","🌍","🌎","🌏","🗺️","🧭","🏔️","⛰️","🌋","🏖️","🏝️","🌅","🌄","🌃","🌉","🎡","🎢","🎠"] },
+  { label: "Objects", emojis: ["⌚","📱","💻","⌨️","🖥️","🖨️","📷","📸","📹","🎥","📺","📻","🎙️","🔋","💡","🔦","🕯️","📚","📖","✏️","🖊️","🖋️","📝","💼","📁","✂️","📌","📎","🔑","🗝️","🔒","🔓","💎","👑","💍","🎩","🧢","👓","🕶️","🎒","👜","💄","💅"] },
+  { label: "Symbols", emojis: ["⭐","🌟","💫","✨","⚡","🔥","💥","☀️","🌙","🌛","🌜","🌝","🌞","⭕","❌","❗","❓","💯","🔴","🟡","🟢","🔵","🟣","⚪","⚫","🏁","🚩","🎌","🏴","🏳️","🏳️‍🌈","🏳️‍⚧️"] },
+];
+
+function EmojiPicker({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) {
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState(0);
+
+  const allEmojis = EMOJI_CATEGORIES.flatMap((c) => c.emojis);
+  const filtered = search
+    ? allEmojis.filter((e) => e.includes(search))
+    : EMOJI_CATEGORIES[activeCategory].emojis;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        marginTop: "0.5rem", background: "rgba(255,255,255,0.98)",
+        border: "1px solid rgba(232,224,214,0.6)", borderRadius: "0.75rem",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.08)", overflow: "hidden",
+      }}
+    >
+      {/* Search */}
+      <div style={{ padding: "0.5rem 0.6rem", borderBottom: "1px solid rgba(232,224,214,0.4)" }}>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search emoji..."
+          autoFocus
+          style={{
+            width: "100%", padding: "0.4rem 0.6rem", borderRadius: "0.5rem",
+            background: "rgba(45,42,38,0.03)", border: "1px solid rgba(232,224,214,0.5)",
+            fontSize: "0.8rem", outline: "none", fontFamily: "inherit", color: "#2D2A26",
+          }}
+        />
+      </div>
+
+      {/* Category tabs */}
+      {!search && (
+        <div style={{
+          display: "flex", overflowX: "auto", gap: "0.1rem",
+          padding: "0.3rem 0.4rem", borderBottom: "1px solid rgba(232,224,214,0.3)",
+          scrollbarWidth: "none",
+        }}>
+          {EMOJI_CATEGORIES.map((cat, i) => (
+            <button
+              key={cat.label}
+              onClick={() => setActiveCategory(i)}
+              style={{
+                padding: "0.25rem 0.5rem", borderRadius: "0.4rem", border: "none",
+                background: activeCategory === i ? "rgba(184,160,210,0.15)" : "transparent",
+                fontSize: "0.65rem", color: activeCategory === i ? "#B8A0D2" : "rgba(107,100,90,0.5)",
+                fontWeight: activeCategory === i ? 600 : 400,
+                cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s",
+              }}
+            >{cat.label}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Emoji grid */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: "0.15rem",
+        padding: "0.5rem", maxHeight: "12rem", overflowY: "auto",
+      }}>
+        {filtered.map((emoji, i) => (
+          <button
+            key={emoji + i}
+            onClick={() => onSelect(emoji)}
+            style={{
+              width: "100%", aspectRatio: "1", borderRadius: "0.4rem",
+              background: "transparent", border: "none",
+              fontSize: "1.3rem", cursor: "pointer", display: "flex",
+              alignItems: "center", justifyContent: "center", transition: "background 0.1s",
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = "rgba(184,160,210,0.12)"; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
+          >{emoji}</button>
+        ))}
+        {filtered.length === 0 && (
+          <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "1rem", color: "rgba(107,100,90,0.4)", fontSize: "0.75rem" }}>
+            No emojis found
+          </div>
+        )}
+      </div>
+
+      {/* Close */}
+      <div style={{ padding: "0.3rem 0.5rem", borderTop: "1px solid rgba(232,224,214,0.3)", textAlign: "right" }}>
+        <button onClick={onClose} style={{
+          padding: "0.25rem 0.6rem", borderRadius: "0.4rem", border: "none",
+          background: "rgba(45,42,38,0.05)", fontSize: "0.7rem", color: "rgba(107,100,90,0.6)",
+          cursor: "pointer",
+        }}>Close</button>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function ProfilePage() {
   const { user } = useAuth();
   const { profile: supaProfile, saveProfile: saveToSupabase } = useProfile();
@@ -262,6 +389,7 @@ export default function ProfilePage() {
   const [comfortFood, setComfortFood] = useState("");
   const [comfortFoodImage, setComfortFoodImage] = useState<string | undefined>(undefined);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [profileShareable, setProfileShareable] = useState(false);
   const [orientation, setOrientation] = useState<ProfileExtras["orientation"]>(undefined);
@@ -1022,7 +1150,7 @@ export default function ProfilePage() {
                   </label>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }}>
                     {MOOD_OPTIONS.map((m) => (
-                      <button key={m.emoji} onClick={() => setMoodEmoji(moodEmoji === m.emoji ? "" : m.emoji)}
+                      <button key={m.emoji + m.label} onClick={() => setMoodEmoji(moodEmoji === m.emoji ? "" : m.emoji)}
                         style={{
                           padding: "0.375rem 0.625rem", borderRadius: "9999px",
                           background: moodEmoji === m.emoji ? "rgba(45,42,38,0.08)" : "rgba(45,42,38,0.02)",
@@ -1032,7 +1160,39 @@ export default function ProfilePage() {
                         }}
                       >{m.emoji} {m.label}</button>
                     ))}
+                    <button
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      style={{
+                        padding: "0.375rem 0.625rem", borderRadius: "9999px",
+                        background: showEmojiPicker ? "rgba(184,160,210,0.15)" : "rgba(45,42,38,0.02)",
+                        border: showEmojiPicker ? "1px solid rgba(184,160,210,0.4)" : "1px solid rgba(232,224,214,0.4)",
+                        fontSize: "0.75rem", color: "rgba(107,100,90,0.8)",
+                        cursor: "pointer", transition: "all 0.15s",
+                      }}
+                    >🎨 Browse all</button>
                   </div>
+                  {/* Custom emoji selected indicator */}
+                  {moodEmoji && !MOOD_OPTIONS.some((m) => m.emoji === moodEmoji) && (
+                    <div style={{
+                      marginTop: "0.4rem", display: "inline-flex", alignItems: "center", gap: "0.4rem",
+                      padding: "0.3rem 0.6rem", borderRadius: "9999px",
+                      background: "rgba(45,42,38,0.08)", border: "1px solid rgba(232,224,214,0.8)",
+                      fontSize: "0.8rem",
+                    }}>
+                      {moodEmoji} <span style={{ fontSize: "0.7rem", color: "rgba(107,100,90,0.6)" }}>Custom</span>
+                      <button onClick={() => setMoodEmoji("")} style={{
+                        background: "none", border: "none", cursor: "pointer",
+                        color: "rgba(107,100,90,0.5)", fontSize: "0.85rem", padding: 0, lineHeight: 1,
+                      }}>×</button>
+                    </div>
+                  )}
+                  {/* Full emoji picker */}
+                  {showEmojiPicker && (
+                    <EmojiPicker
+                      onSelect={(emoji) => { setMoodEmoji(emoji); setShowEmojiPicker(false); }}
+                      onClose={() => setShowEmojiPicker(false)}
+                    />
+                  )}
                 </div>
 
                 {/* Bio */}

@@ -4,17 +4,28 @@
 
 // Profanity / slur blocklist — covers common offensive terms and l33t-speak variants.
 // This is intentionally comprehensive but not exhaustive; production would use a service.
-const BLOCKED_WORDS = [
-  "fuck","shit","ass","bitch","damn","cunt","dick","cock","pussy",
-  "nigger","nigga","faggot","fag","retard","retarded","whore","slut",
-  "bastard","piss","twat","wanker","bollocks","arsehole","asshole",
-  "motherfucker","mfer","stfu","gtfo","lmfao","wtf","af",
-  "porn","hentai","xxx","nsfw","nude","nudes","naked","sex","sexy",
-  "dildo","vibrator","orgasm","blowjob","handjob","cumshot","anal",
-  "boob","boobs","tits","titties","penis","vagina","erection",
-  "kike","spic","wetback","chink","gook","beaner","cracker",
+// Words checked as substring (always blocked if found anywhere)
+const BLOCKED_SUBSTRINGS = [
+  "fuck","shit","cunt","dick","cock","pussy",
+  "nigger","nigga","faggot","whore","slut",
+  "asshole","arsehole","motherfuck",
+  "porn","hentai","xxx","nsfw","nude","nudes","naked",
+  "dildo","vibrator","orgasm","blowjob","handjob","cumshot",
+  "boob","tits","titties","penis","vagina","erection",
+  "kike","spic","wetback","chink","gook","beaner",
   "tranny","shemale","dyke",
-  "kill","murder","rape","molest","pedophile","pedo",
+  "rape","molest","pedophile","pedo",
+  "cocksucker","dickhead","asswipe","shithead","fuckface",
+  "bitchass","dumbass","jackass","fatass","badass",
+];
+
+// Words checked with word boundaries (to avoid false positives in normal words)
+const BLOCKED_WORDS = [
+  "ass","bitch","damn","fag","retard","retarded",
+  "bastard","piss","twat","wanker","bollocks",
+  "mfer","stfu","gtfo","wtf",
+  "sex","sexy","anal",
+  "kill","murder","cracker",
   // Common l33t substitutions
   "f*ck","sh*t","a$$","b!tch","d!ck","c0ck","pu$$y",
   "f**k","s**t","b**ch","n**ga","n**ger",
@@ -28,9 +39,20 @@ const BLOCKED_EMOJI_PATTERNS = [
   "\u{1F595}",          // middle finger
 ];
 
+// Unicode homoglyphs → ASCII
+const HOMOGLYPHS: Record<string, string> = {
+  "а": "a", "с": "c", "е": "e", "і": "i", "о": "o", "р": "p",
+  "ѕ": "s", "у": "y", "х": "x", "ɑ": "a", "ϲ": "c", "ε": "e",
+  "ο": "o", "υ": "u", "ν": "v", "ω": "w", "ʀ": "r", "ᴋ": "k",
+  "ɪ": "i", "ʜ": "h", "ᴅ": "d", "ʙ": "b", "ᴛ": "t", "ꜱ": "s",
+};
+
 function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
+  let t = text.toLowerCase();
+  // Replace unicode homoglyphs
+  t = t.replace(/./g, (ch) => HOMOGLYPHS[ch] || ch);
+  // l33t speak substitutions
+  t = t
     .replace(/[0@]/g, "o")
     .replace(/1/g, "i")
     .replace(/3/g, "e")
@@ -38,7 +60,15 @@ function normalizeText(text: string): string {
     .replace(/5/g, "s")
     .replace(/\$/g, "s")
     .replace(/[!|]/g, "i")
-    .replace(/[*_\-.]/g, "");
+    .replace(/[*_\-.~`'"]/g, "");
+  // Collapse repeated characters (fuuuck → fuck, shhit → shit)
+  t = t.replace(/(.)\1{2,}/g, "$1");
+  return t;
+}
+
+// Additional normalization that strips ALL non-alpha to catch spaced-out evasions
+function normalizeStripped(text: string): string {
+  return normalizeText(text).replace(/[^a-z]/g, "");
 }
 
 export interface ModerationResult {
@@ -50,27 +80,34 @@ export function moderateText(text: string, fieldName: string): ModerationResult 
   if (!text.trim()) return { passed: true };
 
   const normalized = normalizeText(text);
+  const stripped = normalizeStripped(text);
 
-  // Check each blocked word as a whole-word match in the normalized string
-  for (const word of BLOCKED_WORDS) {
-    const normalizedWord = normalizeText(word);
-    // Word boundary check: look for the word surrounded by non-alpha chars or string edges
-    const regex = new RegExp(`(?:^|[^a-z])${escapeRegex(normalizedWord)}(?:[^a-z]|$)`);
-    if (regex.test(normalized)) {
-      return {
-        passed: false,
-        reason: `${fieldName} contains inappropriate language. Please keep it clean.`,
-      };
+  // 1. Substring check — these are always bad regardless of context
+  for (const word of BLOCKED_SUBSTRINGS) {
+    const nw = normalizeText(word);
+    // Check in normalized text (preserves spaces)
+    if (normalized.includes(nw)) {
+      return { passed: false, reason: `${fieldName} contains inappropriate language. Please keep it clean.` };
+    }
+    // Also check in fully stripped text (catches "f u c k", "c.o.c.k", etc.)
+    if (stripped.includes(nw)) {
+      return { passed: false, reason: `${fieldName} contains inappropriate language. Please keep it clean.` };
     }
   }
 
-  // Check blocked emoji patterns
+  // 2. Word-boundary check — avoid false positives (e.g. "class" contains "ass")
+  for (const word of BLOCKED_WORDS) {
+    const nw = normalizeText(word);
+    const regex = new RegExp(`(?:^|[^a-z])${escapeRegex(nw)}(?:[^a-z]|$)`);
+    if (regex.test(normalized)) {
+      return { passed: false, reason: `${fieldName} contains inappropriate language. Please keep it clean.` };
+    }
+  }
+
+  // 3. Check blocked emoji patterns
   for (const pattern of BLOCKED_EMOJI_PATTERNS) {
     if (text.includes(pattern)) {
-      return {
-        passed: false,
-        reason: `${fieldName} contains inappropriate emoji. Please remove it.`,
-      };
+      return { passed: false, reason: `${fieldName} contains inappropriate emoji. Please remove it.` };
     }
   }
 

@@ -462,15 +462,6 @@ export default function GroupPage() {
                   <motion.button
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    onClick={() => window.location.href = "/contacts"}
-                    className="w-full max-w-xs px-5 py-3 rounded-xl text-sm font-medium border-2 border-dashed border-border-light text-text-secondary hover:border-accent-rose/40 hover:bg-accent-rose/5 transition-all cursor-pointer inline-flex items-center justify-center gap-2"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-                    Find Your Contacts
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
                     onClick={() => {
                       if (navigator.share) {
                         navigator.share({ title: "Join my group on The Sweet Spot", url: `${window.location.origin}/join/${groupId || "new"}` });

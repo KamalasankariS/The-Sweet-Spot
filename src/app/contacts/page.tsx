@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
 import { Navbar } from "@/components/layout/Navbar";
@@ -27,6 +27,21 @@ export default function ContactsPage() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("matched");
   const [invitedEmails, setInvitedEmails] = useState<Set<string>>(new Set());
+  const autoSynced = useRef(false);
+
+  // Auto-sync after OAuth redirect (URL has ?synced=1)
+  useEffect(() => {
+    if (user && !synced && !autoSynced.current) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("synced") === "1") {
+        autoSynced.current = true;
+        // Clean up URL
+        window.history.replaceState({}, "", "/contacts");
+        handleSyncContacts();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, synced]);
 
   const handleSyncContacts = async () => {
     setError("");

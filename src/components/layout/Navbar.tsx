@@ -93,8 +93,17 @@ function ProfileAvatar({ user }: { user: { id: string; email?: string; user_meta
   );
 }
 
+const NAV_LINKS = [
+  { href: "/quiz", label: "Quiz" },
+  { href: "/plan", label: "Plan" },
+  { href: "/group", label: "Groups" },
+  { href: "/friends", label: "Friends" },
+  { href: "/wrapped", label: "Wrapped" },
+];
+
 export function Navbar() {
   const { user, loading, signOut, configured } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <motion.nav
@@ -105,84 +114,161 @@ export function Navbar() {
     >
       <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0.75rem 1.5rem" }}>
         <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
           borderRadius: "1rem",
           background: "rgba(255,255,255,0.7)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
           border: "1px solid rgba(232,224,214,0.6)",
-          padding: "0.5rem 1rem",
           boxShadow: "0 2px 12px rgba(45,42,38,0.04)",
+          overflow: "hidden",
         }}>
-          {/* Logo */}
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.5rem", textDecoration: "none" }}>
-            <img
-              src="/backgrounds/The Sweet Spot Logo.png"
-              alt="The Sweet Spot"
-              style={{ width: "2.5rem", height: "2.5rem", objectFit: "contain" }}
-            />
-            <span style={{ fontSize: "1.4rem", fontFamily: "var(--font-yuyu)", color: "#2D2A26", letterSpacing: "0.02em", whiteSpace: "nowrap" }}>
-              The Sweet Spot
-            </span>
-          </Link>
+          {/* Main bar */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0.5rem 1rem",
+          }}>
+            {/* Logo */}
+            <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.5rem", textDecoration: "none" }}>
+              <img
+                src="/backgrounds/The Sweet Spot Logo.png"
+                alt="The Sweet Spot"
+                style={{ width: "2.5rem", height: "2.5rem", objectFit: "contain" }}
+              />
+              <span style={{ fontSize: "1.4rem", fontFamily: "var(--font-yuyu)", color: "#2D2A26", letterSpacing: "0.02em", whiteSpace: "nowrap" }}>
+                The Sweet Spot
+              </span>
+            </Link>
 
-          {/* Nav links */}
-          <div className="hidden md:flex" style={{ alignItems: "center", gap: "1.1rem", whiteSpace: "nowrap", flexShrink: 0 }}>
-            <NavLink href="/quiz">Quiz</NavLink>
-            <NavLink href="/plan">Plan</NavLink>
-            <NavLink href="/group">Groups</NavLink>
-            <NavLink href="/friends">Friends</NavLink>
-            <NavLink href="/contacts">Contacts</NavLink>
-            <NavLink href="/wrapped">Wrapped</NavLink>
+            {/* Desktop nav links */}
+            <div className="hidden md:flex" style={{ alignItems: "center", gap: "1.1rem", whiteSpace: "nowrap", flexShrink: 0 }}>
+              {NAV_LINKS.map((l) => <NavLink key={l.href} href={l.href}>{l.label}</NavLink>)}
+            </div>
+
+            {/* CTA / Auth + hamburger */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0, whiteSpace: "nowrap" }}>
+              {configured && !loading && user ? (
+                <>
+                  <MessagesBadge />
+                  <NotificationBell />
+                  <ProfileAvatar user={user} />
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={signOut}
+                    className="hidden md:inline-flex"
+                    style={{
+                      padding: "0.5rem 1rem",
+                      borderRadius: "0.75rem",
+                      border: "1px solid rgba(232,224,214,0.6)",
+                      background: "rgba(255,255,255,0.5)",
+                      color: "rgba(45,42,38,0.6)",
+                      fontSize: "0.8rem",
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Sign Out
+                  </motion.button>
+                </>
+              ) : (
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                  <Link
+                    href={configured ? "/auth" : "/quiz"}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      borderRadius: "0.75rem",
+                      background: "linear-gradient(135deg, #E8788A, #B8A0D2, #8CBFD4)",
+                      color: "white",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                      display: "inline-block",
+                    }}
+                  >
+                    {!configured ? "Get Started" : loading ? "..." : "Sign In"}
+                  </Link>
+                </motion.div>
+              )}
+
+              {/* Hamburger — mobile only */}
+              <button
+                className="md:hidden"
+                onClick={() => setMobileOpen(!mobileOpen)}
+                aria-label="Menu"
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  padding: "0.3rem", display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "rgba(45,42,38,0.6)",
+                }}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {mobileOpen ? (
+                    <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>
+                  ) : (
+                    <><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></>
+                  )}
+                </svg>
+              </button>
+            </div>
           </div>
 
-          {/* CTA / Auth */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0, whiteSpace: "nowrap" }}>
-            {configured && !loading && user ? (
-              <>
-                <MessagesBadge />
-                <NotificationBell />
-                <ProfileAvatar user={user} />
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={signOut}
+          {/* Mobile dropdown */}
+          {mobileOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden"
+              style={{
+                borderTop: "1px solid rgba(232,224,214,0.4)",
+                padding: "0.5rem 0.75rem 0.75rem",
+                display: "flex", flexDirection: "column", gap: "0.15rem",
+              }}
+            >
+              {NAV_LINKS.map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  onClick={() => setMobileOpen(false)}
                   style={{
-                    padding: "0.5rem 1rem",
-                    borderRadius: "0.75rem",
-                    border: "1px solid rgba(232,224,214,0.6)",
-                    background: "rgba(255,255,255,0.5)",
-                    color: "rgba(45,42,38,0.6)",
-                    fontSize: "0.8rem",
+                    padding: "0.55rem 0.75rem",
+                    borderRadius: "0.5rem",
+                    fontSize: "0.85rem",
                     fontWeight: 500,
-                    cursor: "pointer",
+                    color: "rgba(45,42,38,0.7)",
+                    textDecoration: "none",
+                    display: "block",
                   }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(232,224,214,0.25)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                >
+                  {l.label}
+                </Link>
+              ))}
+              {configured && !loading && user && (
+                <button
+                  onClick={() => { signOut(); setMobileOpen(false); }}
+                  style={{
+                    padding: "0.55rem 0.75rem",
+                    borderRadius: "0.5rem",
+                    fontSize: "0.85rem",
+                    fontWeight: 500,
+                    color: "rgba(220,80,80,0.7)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(220,80,80,0.05)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
                 >
                   Sign Out
-                </motion.button>
-              </>
-            ) : (
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                <Link
-                  href={configured ? "/auth" : "/quiz"}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    borderRadius: "0.75rem",
-                    background: "linear-gradient(135deg, #E8788A, #B8A0D2, #8CBFD4)",
-                    color: "white",
-                    fontSize: "0.8rem",
-                    fontWeight: 600,
-                    textDecoration: "none",
-                    display: "inline-block",
-                  }}
-                >
-                  {!configured ? "Get Started" : loading ? "..." : "Sign In"}
-                </Link>
-              </motion.div>
-            )}
-          </div>
+                </button>
+              )}
+            </motion.div>
+          )}
         </div>
       </div>
     </motion.nav>

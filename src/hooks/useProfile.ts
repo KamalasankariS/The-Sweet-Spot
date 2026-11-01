@@ -65,7 +65,9 @@ export function useProfile() {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(p));
 
     if (supabase && userId) {
-      const row = profileToRow(userId, p);
+      const { data: { user } } = await supabase.auth.getUser();
+      const meta = user?.user_metadata as Record<string, string> | undefined;
+      const row = profileToRow(userId, p, meta);
       await supabase.from("profiles").upsert(row, { onConflict: "id" });
     }
   }, [supabase, userId]);
@@ -91,7 +93,23 @@ export function useProfile() {
       .single();
 
     if (existing) {
-      // Load from Supabase (server wins)
+      // Update name fields from auth metadata (these are always authoritative)
+      const meta = user.user_metadata as Record<string, string> | undefined;
+      if (meta) {
+        const nameUpdates: Record<string, string | null> = {};
+        if (meta.first_name) nameUpdates.first_name = meta.first_name;
+        if (meta.last_name) nameUpdates.last_name = meta.last_name;
+        if (meta.username) {
+          nameUpdates.username = meta.username;
+          nameUpdates.name = meta.username;
+        }
+        if (meta.display_name) nameUpdates.name = meta.display_name;
+        if (Object.keys(nameUpdates).length > 0) {
+          await supabase.from("profiles").update(nameUpdates).eq("id", user.id);
+        }
+      }
+
+      // Load from Supabase (server wins for taste data)
       const { data } = await supabase
         .from("profiles")
         .select("*")
@@ -108,7 +126,8 @@ export function useProfile() {
       if (saved) {
         try {
           const p: LocalProfile = JSON.parse(saved);
-          const row = profileToRow(user.id, p);
+          const meta = user.user_metadata as Record<string, string> | undefined;
+          const row = profileToRow(user.id, p, meta);
           await supabase.from("profiles").upsert(row, { onConflict: "id" });
         } catch { /* ignore */ }
       }
@@ -148,10 +167,13 @@ function rowToProfile(row: ProfileRow): LocalProfile {
   };
 }
 
-function profileToRow(userId: string, p: LocalProfile) {
+function profileToRow(userId: string, p: LocalProfile, authMeta?: Record<string, string>) {
   return {
     id: userId,
     name: p.name || "",
+    first_name: authMeta?.first_name || null,
+    last_name: authMeta?.last_name || null,
+    username: authMeta?.username || null,
     selections: p.selections || {},
     entity_ids: p.entityIds || {},
     entity_images: p.entityImages || {},

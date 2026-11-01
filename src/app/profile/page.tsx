@@ -9,7 +9,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GradientButton } from "@/components/ui/GradientButton";
 import { Toast } from "@/components/ui/Toast";
-import { moderateName, moderateBio, moderateImageFile, resizeImage } from "@/lib/moderation";
+import { moderateName, moderateText, moderateImageFile, resizeImage } from "@/lib/moderation";
 import type { LocalProfile, ProfileExtras } from "@/hooks/useLocalProfile";
 import { useProfile } from "@/hooks/useProfile";
 import { getCuisineFlag, FOOD_SUGGESTIONS } from "@/lib/cuisineFlags";
@@ -534,9 +534,25 @@ export default function ProfilePage() {
     if (!profile) return;
     const nameCheck = moderateName(profile.name);
     if (!nameCheck.passed) { showToast(nameCheck.reason!); return; }
-    if (bio.trim()) {
-      const bioCheck = moderateBio(bio.trim());
-      if (!bioCheck.passed) { showToast(bioCheck.reason!); return; }
+
+    // Moderate all text fields
+    const fieldsToCheck: [string, string][] = [
+      [bio.trim(), "Bio"],
+      [comfortMovie.trim(), "Comfort movie"],
+      [comfortFood.trim(), "Comfort food"],
+      [currentSong.trim(), "Current song"],
+      [currentSongArtist.trim(), "Song artist"],
+      [regionCity.trim(), "City"],
+      [regionState.trim(), "State"],
+      [editFirstName.trim(), "First name"],
+      [editLastName.trim(), "Last name"],
+      [editUsername.trim(), "Username"],
+    ];
+    for (const [value, label] of fieldsToCheck) {
+      if (value) {
+        const check = moderateText(value, label);
+        if (!check.passed) { showToast(check.reason!); return; }
+      }
     }
 
     const newExtras: ProfileExtras = {

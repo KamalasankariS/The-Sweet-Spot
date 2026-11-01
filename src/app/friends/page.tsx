@@ -411,9 +411,17 @@ export default function FriendsPage() {
             borderRadius: "1.25rem", border: "1px solid rgba(232,224,214,0.6)",
           }}>
             <p style={{ fontSize: "1.1rem", fontWeight: 600, color: "rgba(45,42,38,0.85)" }}>Sign in to manage friends</p>
-            <p style={{ fontSize: "0.8rem", color: "rgba(107,100,90,0.5)", marginTop: "0.5rem" }}>
+            <p style={{ fontSize: "0.8rem", color: "rgba(107,100,90,0.5)", marginTop: "0.5rem", marginBottom: "1rem" }}>
               Connect with friends to plan events together.
             </p>
+            <Link href="/auth?next=/friends" style={{
+              padding: "0.6rem 1.5rem", borderRadius: "0.75rem",
+              background: "linear-gradient(135deg, #E8788A, #B8A0D2)",
+              color: "white", fontSize: "0.85rem", fontWeight: 600,
+              textDecoration: "none", display: "inline-block",
+            }}>
+              Sign In
+            </Link>
           </div>
         </div>
       </>

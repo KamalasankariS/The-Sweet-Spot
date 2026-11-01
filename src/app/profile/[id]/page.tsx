@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
 import { Navbar } from "@/components/layout/Navbar";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { ShareProfileModal } from "@/components/ui/ShareProfileModal";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useParams, useRouter } from "next/navigation";
@@ -33,6 +34,7 @@ interface PublicProfile {
 }
 
 type RelationshipStatus =
+  | "loading"
   | "none"
   | "friends"
   | "request_sent"
@@ -56,11 +58,12 @@ function PublicProfileInner() {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [relationship, setRelationship] = useState<RelationshipStatus>("none");
+  const [relationship, setRelationship] = useState<RelationshipStatus | "loading">("loading");
   const [friendshipId, setFriendshipId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState("");
   const [mutualCount, setMutualCount] = useState(0);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const supabase = useRef(createClient()).current;
 
   // Load profile
@@ -506,40 +509,23 @@ function PublicProfileInner() {
             </>
           )}
 
-          {/* Share button — always visible for logged in users */}
-          {relationship !== "logged_out" && (
-            <motion.button
-              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              onClick={async () => {
-                const url = window.location.href;
-                const shareData = {
-                  title: `${displayName} on The Sweet Spot`,
-                  text: `Check out ${displayName}'s taste profile on The Sweet Spot!`,
-                  url,
-                };
-                try {
-                  if (navigator.share) {
-                    await navigator.share(shareData);
-                  } else {
-                    await navigator.clipboard.writeText(url);
-                    showToast("Profile link copied!");
-                  }
-                } catch { /* cancelled */ }
-              }}
-              style={{
-                padding: "0.6rem", borderRadius: "0.75rem",
-                background: "rgba(255,255,255,0.7)", border: "1px solid rgba(232,224,214,0.6)",
-                color: "rgba(45,42,38,0.5)", cursor: "pointer",
-                display: "inline-flex", alignItems: "center", justifyContent: "center",
-              }}
-              title="Share profile"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-              </svg>
-            </motion.button>
-          )}
+          {/* Share button — always visible */}
+          <motion.button
+            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            onClick={() => setShareModalOpen(true)}
+            style={{
+              padding: "0.6rem", borderRadius: "0.75rem",
+              background: "rgba(255,255,255,0.7)", border: "1px solid rgba(232,224,214,0.6)",
+              color: "rgba(45,42,38,0.5)", cursor: "pointer",
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+            }}
+            title="Share profile"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+          </motion.button>
         </motion.div>
 
         {/* Vibes */}
@@ -629,6 +615,14 @@ function PublicProfileInner() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Share Modal */}
+      <ShareProfileModal
+        open={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        profileOwnerId={profileId}
+        profileOwnerUsername={profile.username || profile.name || "user"}
+      />
     </main>
   );
 }

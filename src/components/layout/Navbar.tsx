@@ -194,12 +194,12 @@ export function Navbar() {
 
               {/* Hamburger — mobile only */}
               <button
-                className="md:hidden"
+                className="flex items-center justify-center md:hidden"
                 onClick={() => setMobileOpen(!mobileOpen)}
                 aria-label="Menu"
                 style={{
                   background: "none", border: "none", cursor: "pointer",
-                  padding: "0.3rem", display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: "0.3rem",
                   color: "rgba(45,42,38,0.6)",
                 }}
               >
